@@ -90,9 +90,20 @@ export interface GeotagRow {
   geotime: string
 }
 
+/** Like `Promise.all`, but waits for every task before rethrowing the first failure. */
+async function allSettled<T>(tasks: Promise<T>[]): Promise<T[]> {
+  const values: T[] = []
+  for (const result of await Promise.allSettled(tasks)) {
+    if (result.status === 'rejected') throw result.reason
+    values.push(result.value)
+  }
+  return values
+}
+
 /**
- * The preview itself: one stub per row in a fresh temp dir, one ExifTool batch with the exact
- * write arguments, then read back. Positions come only from ExifTool.
+ * The preview itself: one stub per row in a fresh temp dir, geotagged in chunks spread over
+ * the process pool — every chunk with the same GPX and geotag arguments a write uses — then
+ * read back. Positions come only from ExifTool.
  */
 export async function geotagStubs(
   et: ExifTool,
@@ -109,10 +120,11 @@ export async function geotagStubs(
     const size = Math.max(MIN_CHUNK, Math.ceil(rows.length / et.options.maxProcs))
     const chunks: GeotagRow[][] = []
     for (let i = 0; i < rows.length; i += size) chunks.push(rows.slice(i, i + size))
-    await Promise.all(
+    // Every chunk settles before `finally` removes the directory they work in.
+    await allSettled(
       chunks.map(async (chunk, k) => {
         const files = chunk.map((r) => join(dir, `${r.id}.xmp`))
-        await Promise.all(files.map((f) => writeFile(f, STUB_XMP)))
+        await allSettled(files.map((f) => writeFile(f, STUB_XMP)))
         const csv = join(dir, `geotime-${k}.csv`)
         await writeFile(
           csv,

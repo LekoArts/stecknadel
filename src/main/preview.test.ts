@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -104,6 +105,28 @@ describe('ExifTool preview against stubs', () => {
     } finally {
       await pool.end()
     }
+  })
+
+  it('a failing chunk waits for the others before the stubs are removed', async () => {
+    const rows = Array.from({ length: 120 }, (_, n) => ({ id: id(2000 + n), geotime: 'x' }))
+    let calls = 0
+    let survivorSawItsFiles = false
+    let survivorDone = false
+    const fake = {
+      options: { maxProcs: 2 },
+      enqueueTask: async (task: () => { args: string[] }) => {
+        const { args } = task()
+        if (!args.includes('-geotag')) return { stdout: '', messages: [] }
+        if (++calls === 1) throw new Error('chunk failed')
+        await new Promise((r) => setTimeout(r, 100))
+        survivorSawItsFiles = args.filter((a) => a.endsWith('.xmp')).every((f) => existsSync(f))
+        survivorDone = true
+        return { stdout: '', messages: [] }
+      },
+    } as unknown as ExifTool
+    await expect(geotagStubs(fake, rows, gpxPath, DEFAULT_LIMITS)).rejects.toThrow('chunk failed')
+    expect(survivorDone).toBe(true)
+    expect(survivorSawItsFiles).toBe(true)
   })
 
   it('leaves unmatched stubs without GPS', async () => {
