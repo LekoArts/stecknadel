@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 import { ExifTool } from 'exiftool-vendored'
-import { launchWithProfile, openFolder } from './helpers/library'
+import { launchWithProfile, openFolder, pickZone } from './helpers/library'
 
 const COUNT = 5000
 const CAMERAS = 5
@@ -76,7 +76,7 @@ const setZone = async (page: Page, camera: string, zone: string): Promise<void> 
     .filter({ hasText: camera })
     .getByRole('button', { name: new RegExp(`^${camera}`) })
     .click()
-  await page.getByTestId('camera-time').getByLabel('Time zone from the start').selectOption(zone)
+  await pickZone(page.getByTestId('camera-time'), 'Time zone from the first photo', zone)
 }
 
 test('preview: 5,000 stubs against a 2,708-point track; full run and one-camera recompute', async () => {

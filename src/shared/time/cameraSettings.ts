@@ -105,6 +105,23 @@ export function segmentFor(settings: CameraTimeSettings, wall: Temporal.PlainDat
   return found
 }
 
+/**
+ * Another camera's time zones and changes, applied to this camera: each change keeps the clock
+ * drift this camera had there, since drift belongs to the clock, not the trip.
+ */
+export function copyZones(
+  target: CameraTimeSettings,
+  source: CameraTimeSettings,
+): CameraTimeSettings {
+  const segments = source.segments.map((segment): Segment => {
+    const own = segment.startsAt
+      ? segmentFor(target, Temporal.PlainDateTime.from(segment.startsAt))
+      : target.segments[0]
+    return { ...segment, driftSeconds: own.driftSeconds }
+  })
+  return { ...target, segments, confirmed: true }
+}
+
 /** Inserts a segment starting at `startsAt`, copying the settings in effect there. */
 export function splitAt(
   settings: CameraTimeSettings,

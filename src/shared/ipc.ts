@@ -99,6 +99,11 @@ export const ipcContract = {
     input: z.undefined(),
     output: z.custom<TrackGeometry | null>(),
   },
+  /** The IANA zone at each point of the loaded track (aligned with the geometry's points). */
+  getTrackZones: {
+    input: z.undefined(),
+    output: z.custom<(string | null)[] | null>(),
+  },
   /**
    * Runs the ExifTool preview for these camera settings; null when superseded by a newer
    * generation, or without photos or track.

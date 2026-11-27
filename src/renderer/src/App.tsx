@@ -1,5 +1,10 @@
 import { CameraList, type CameraTimeLabel } from '@renderer/components/CameraList'
-import { CameraTimePanel, type CameraTimeStats } from '@renderer/components/CameraTimePanel'
+import {
+  allRecorded,
+  CameraTimePanel,
+  type CameraTimeStats,
+  type TimeOrigin,
+} from '@renderer/components/CameraTimePanel'
 import { MapPanel } from '@renderer/components/MapPanel'
 import { MetadataPanel } from '@renderer/components/MetadataPanel'
 import { PhotoGrid } from '@renderer/components/PhotoGrid'
@@ -9,13 +14,18 @@ import { Button } from '@renderer/components/ui/button'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
 import { usePreview } from '@renderer/lib/preview'
 import { clearThumbnailCache } from '@renderer/lib/thumbnails'
-import { localZone, tzLabel } from '@renderer/lib/time'
+import { localZone, offsetLabel, tzLabel } from '@renderer/lib/time'
 import type { DawarichState } from '@shared/ipc'
 import type { LibraryProgress, LibrarySnapshot, PhotoSummary } from '@shared/library'
 import type { Position, TrackGeometry } from '@shared/preview'
 import type { SettingsView } from '@shared/settings'
 import { applyOffsetCandidate } from '@shared/time/applyOffset'
-import { type CameraTimeSettings, defaultCameraSettings } from '@shared/time/cameraSettings'
+import {
+  type CameraTimeSettings,
+  copyZones,
+  defaultCameraSettings,
+} from '@shared/time/cameraSettings'
+import { detectCameraSettings } from '@shared/time/detectZones'
 import { instantSeconds } from '@shared/time/exifDate'
 import type { OffsetCandidate } from '@shared/time/offsetFinder'
 import { type PhotoUtc, photoUtc } from '@shared/time/toUtc'
@@ -46,17 +56,41 @@ export default function App(): React.JSX.Element {
   const [fetchRequest, setFetchRequest] = useState<{ range: FetchRange } | null>(null)
   const [manual, setManual] = useState<Record<string, Position>>({})
   const [geometry, setGeometry] = useState<TrackGeometry | null>(null)
+  /** The zone at each track point, for detecting camera zones; null until looked up. */
+  const [trackZones, setTrackZones] = useState<(string | null)[] | null>(null)
   const [settings, setSettings] = useState<SettingsView | null>(null)
   const [mapRevision, setMapRevision] = useState(0)
   const settingsKey = settings ? JSON.stringify([settings.matching, settings.writing]) : null
   const matchingKey = settings ? JSON.stringify(settings.matching) : null
   const defaultSettings = useMemo(() => defaultCameraSettings(localZone()), [])
+  // Settings from the track for each camera the user hasn't set: the clock showed local time.
+  const detected = useMemo(() => {
+    const out = new Map<string, CameraTimeSettings>()
+    if (!library || !geometry || !trackZones || trackZones.length !== geometry.points.length) {
+      return out
+    }
+    const zoned = { points: geometry.points, zones: trackZones }
+    const byCamera = Map.groupBy(library.photos, (p) => p.cameraKey)
+    for (const [key, photos] of byCamera) {
+      const found = detectCameraSettings(photos, zoned, true)
+      if (found) out.set(key, found)
+    }
+    return out
+  }, [library, geometry, trackZones])
+  const tripZones = useMemo(
+    () => [...new Set(trackZones?.filter((z): z is string => z !== null))],
+    [trackZones],
+  )
   // Every camera's settings, defaults included: what the preview (and later the write) uses.
   const cameraSettings = useMemo(() => {
     const out: Record<string, CameraTimeSettings> = {}
-    for (const c of library?.cameras ?? []) out[c.key] = timeSettings[c.key] ?? defaultSettings
+    for (const c of library?.cameras ?? []) {
+      out[c.key] = timeSettings[c.key] ?? detected.get(c.key) ?? defaultSettings
+    }
     return out
-  }, [library, timeSettings, defaultSettings])
+  }, [library, timeSettings, detected, defaultSettings])
+  const originOf = (key: string): TimeOrigin =>
+    timeSettings[key] ? 'user' : detected.has(key) ? 'track' : 'default'
   const preview = usePreview(library, track, cameraSettings, manual, settingsKey)
 
   // Bridged stays depend on the matching settings too.
@@ -74,6 +108,18 @@ export default function App(): React.JSX.Element {
       current = false
     }
   }, [track, matchingKey])
+
+  useEffect(() => {
+    setTrackZones(null)
+    if (!track) return
+    let current = true
+    void window.stecknadel.getTrackZones().then((zones) => {
+      if (current) setTrackZones(zones)
+    })
+    return () => {
+      current = false
+    }
+  }, [track])
 
   useEffect(() => {
     void window.stecknadel.getTrackState().then((state) => {
@@ -132,34 +178,55 @@ export default function App(): React.JSX.Element {
     () => (library ? defaultFetchRange(library.photos.map((p) => p.captureTime)) : null),
     [library],
   )
-  const settingsFor = (key: string): CameraTimeSettings => timeSettings[key] ?? defaultSettings
+  const settingsFor = (key: string): CameraTimeSettings => cameraSettings[key] ?? defaultSettings
 
   const utcs = useMemo(() => {
     const map = new Map<string, PhotoUtc>()
     for (const p of library?.photos ?? []) {
-      map.set(p.id, photoUtc(p, timeSettings[p.cameraKey] ?? defaultSettings))
+      map.set(p.id, photoUtc(p, cameraSettings[p.cameraKey] ?? defaultSettings))
     }
     return map
-  }, [library, timeSettings, defaultSettings])
+  }, [library, cameraSettings, defaultSettings])
 
   const cameraStats = useMemo(() => {
     const stats = new Map<string, CameraTimeStats>()
     for (const p of library?.photos ?? []) {
-      const s = stats.get(p.cameraKey) ?? { noTime: 0, ambiguous: 0, conflict: 0, recorded: 0 }
+      const s = stats.get(p.cameraKey) ?? {
+        noTime: 0,
+        ambiguous: 0,
+        conflict: 0,
+        recorded: 0,
+        offsets: [],
+        first: null,
+      }
       const time = utcs.get(p.id)
       if (!time?.utc) s.noTime++
       if (time?.warnings.includes('ambiguous-local-time')) s.ambiguous++
       if (time?.warnings.includes('offset-conflict')) s.conflict++
-      if (p.offsetTimeOriginal) s.recorded++
+      if (p.offsetTimeOriginal) {
+        s.recorded++
+        if (!s.offsets.includes(p.offsetTimeOriginal)) s.offsets.push(p.offsetTimeOriginal)
+      }
+      // EXIF date strings sort chronologically.
+      if (p.captureTime && (s.first === null || p.captureTime < s.first)) s.first = p.captureTime
       stats.set(p.cameraKey, s)
     }
+    for (const s of stats.values()) s.offsets.sort()
     return stats
   }, [library, utcs])
 
   const timeLabels = useMemo(() => {
     const labels = new Map<string, CameraTimeLabel>()
     for (const camera of library?.cameras ?? []) {
-      const s = timeSettings[camera.key] ?? defaultSettings
+      const s = cameraSettings[camera.key]
+      const stats = cameraStats.get(camera.key)
+      if (stats && allRecorded(s, stats, camera.count)) {
+        labels.set(camera.key, {
+          text: `Saved in photos: ${stats.offsets.map(offsetLabel).join(', ')}`,
+          unconfirmed: false,
+        })
+        continue
+      }
       const changes = s.segments.length - 1
       labels.set(camera.key, {
         text: `${tzLabel(s.segments[0].tz)}${changes ? ` + ${changes} change${changes === 1 ? '' : 's'}` : ''}`,
@@ -167,7 +234,7 @@ export default function App(): React.JSX.Element {
       })
     }
     return labels
-  }, [library, timeSettings, defaultSettings])
+  }, [library, cameraSettings, cameraStats])
 
   // Photos whose UTC the fetched Dawarich range can't judge (user decision: never before/after).
   const outside = useMemo(() => {
@@ -249,12 +316,39 @@ export default function App(): React.JSX.Element {
                   key={selectedCamera.key}
                   camera={selectedCamera}
                   settings={settingsFor(selectedCamera.key)}
+                  origin={originOf(selectedCamera.key)}
+                  tripZones={tripZones}
+                  copySources={library.cameras
+                    .filter((c) => {
+                      const stats = cameraStats.get(c.key)
+                      return (
+                        c.key !== selectedCamera.key &&
+                        originOf(c.key) !== 'default' &&
+                        !(stats && allRecorded(settingsFor(c.key), stats, c.count))
+                      )
+                    })
+                    .map((c) => ({
+                      key: c.key,
+                      name: c.name,
+                      label: timeLabels.get(c.key)?.text ?? '',
+                    }))}
+                  onCopyFrom={(key) =>
+                    setTimeSettings((current) => ({
+                      ...current,
+                      [selectedCamera.key]: copyZones(
+                        settingsFor(selectedCamera.key),
+                        settingsFor(key),
+                      ),
+                    }))
+                  }
                   stats={
                     cameraStats.get(selectedCamera.key) ?? {
                       noTime: 0,
                       ambiguous: 0,
                       conflict: 0,
                       recorded: 0,
+                      offsets: [],
+                      first: null,
                     }
                   }
                   selectedCaptureTime={

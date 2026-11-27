@@ -78,6 +78,7 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
     ],
   },
   getTrackGeometry: { valid: [undefined], invalid: [{}, 'x'] },
+  getTrackZones: { valid: [undefined], invalid: [{}, 'x'] },
   getSettings: {
     valid: [undefined],
     invalid: [null, {}, { path: '/x.pmtiles' }],

@@ -29,10 +29,21 @@ export const formatInstant = (instant: Temporal.Instant): string =>
 /** Camera-local `2026-11-07T00:00:00` → `2026-11-07 00:00:00`. */
 export const formatWall = (wall: string): string => wall.replace('T', ' ')
 
-/** EXIF `2026:11:07 13:28:21` → the `datetime-local` value `2026-11-07T13:28:21`. */
+/** EXIF `2026:11:07 13:28:21` → the input value `2026-11-07 13:28:21`. */
 export const exifToInput = (exif: string): string =>
-  `${exif.slice(0, 10).replaceAll(':', '-')}T${exif.slice(11, 19)}`
+  `${exif.slice(0, 10).replaceAll(':', '-')} ${exif.slice(11, 19)}`
 
 /** Signed seconds as `+73 s` / `−73 s`. */
 export const formatDrift = (seconds: number): string =>
   `${seconds > 0 ? '+' : seconds < 0 ? '−' : ''}${Math.abs(seconds)} s`
+
+/** Typed `2026-11-07 13:28[:21]` (a `T` works too) → a wall time; null when it isn't one. */
+export function parseWallInput(text: string): Temporal.PlainDateTime | null {
+  const match = /^\s*(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)\s*$/.exec(text)
+  if (!match) return null
+  try {
+    return Temporal.PlainDateTime.from(`${match[1]}T${match[2]}`, { overflow: 'reject' })
+  } catch {
+    return null
+  }
+}

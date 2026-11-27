@@ -1,7 +1,7 @@
 import { cp, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ElectronApplication, Page } from '@playwright/test'
+import type { ElectronApplication, Locator, Page } from '@playwright/test'
 import { launchApp } from './app'
 
 const fixtures = join(__dirname, '../../test/fixtures')
@@ -53,4 +53,21 @@ export async function copyFixtures(): Promise<string> {
   })
   await cp(join(fixtures, 'generated/smoke.jpg'), join(dir, 'smoke.jpg'))
   return dir
+}
+
+/** Picks a zone (or "Fixed UTC offset…") in the camera-time zone picker labelled `label`. */
+export async function pickZone(scope: Locator, label: string, zone: string): Promise<void> {
+  await scope.getByRole('combobox', { name: label }).click()
+  const page = scope.page()
+  const search = page.getByPlaceholder('City, zone or offset')
+  if (zone === 'fixed') {
+    await search.fill('fixed')
+    await page.getByRole('option', { name: 'Fixed UTC offset…' }).click()
+  } else {
+    await search.fill(zone)
+    await page
+      .getByRole('option', { name: new RegExp(`^${zone.replaceAll('_', ' ')}\\b`) })
+      .first()
+      .click()
+  }
 }

@@ -62,7 +62,7 @@ export function MetadataPanel({ photo }: { photo: PhotoSummary | null }): React.
           className="mt-2 h-8 w-full rounded-md border bg-background px-2 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         />
       </div>
-      <div data-testid="metadata" className="min-h-0 flex-1 overflow-y-auto px-4 py-2 text-xs">
+      <div data-testid="metadata" className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 text-xs">
         {state.status === 'loading' && <p className="text-muted-foreground">Reading tags…</p>}
         {state.status === 'error' && (
           <p className="text-destructive">Couldn’t read this file: {state.message}</p>
@@ -72,7 +72,7 @@ export function MetadataPanel({ photo }: { photo: PhotoSummary | null }): React.
         )}
         {filtered.map(([group, rows]) => (
           <section key={group} className="mb-3">
-            <h3 className="sticky top-0 bg-background py-1 font-medium text-muted-foreground">
+            <h3 className="sticky top-0 z-10 -mx-4 mb-1 border-y bg-muted px-4 py-1 font-semibold text-foreground shadow-xs">
               {group}
             </h3>
             <dl className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-2">

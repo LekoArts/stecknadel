@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
 import { ExifTool } from 'exiftool-vendored'
-import { launchWithProfile, openFolder } from './helpers/library'
+import { launchWithProfile, openFolder, pickZone } from './helpers/library'
 
 // Own instance: the module singleton cannot be reused once another spec in this worker ends it.
 const exiftool = new ExifTool()
@@ -80,41 +80,52 @@ test('per-camera time: zone, time change, drift, recorded offsets and the UTC co
     await selectCamera(page, 'Camera A')
     const panel = page.getByTestId('camera-time')
     await expect(panel.getByTestId('unconfirmed')).toBeVisible()
-    await panel.getByLabel('Time zone from the start').selectOption('Europe/Zurich')
+    await pickZone(panel, 'Time zone from the first photo', 'Europe/Zurich')
     await expect(panel.getByTestId('unconfirmed')).toBeHidden()
     await expect(utcOf(page, 'day1.jpg')).toHaveText('2026-06-01 07:30:00Z')
     await expect(utcOf(page, 'day2.jpg')).toHaveText('2026-06-02 08:00:00Z')
 
     // A time change on day 2 to a fixed +01:00 moves only day-2 photos.
-    await panel.getByRole('button', { name: 'Add time change at…' }).click()
-    await panel.getByLabel(/Camera time of the change/).fill('2026-06-02T00:00')
+    await panel.getByRole('button', { name: 'Clock changed…' }).click()
+    await panel
+      .getByLabel('Camera time of the first photo after the change')
+      .fill('2026-06-02 00:00')
     await panel.getByRole('button', { name: 'Add', exact: true }).click()
     await expect(panel.getByTestId('segment')).toHaveCount(2)
-    await panel.getByLabel('Time zone from 2026-06-02 00:00:00').selectOption('__offset')
+    await pickZone(panel, 'Time zone from 2026-06-02 00:00:00', 'fixed')
     const offset = panel.getByLabel('UTC', { exact: true })
     await offset.fill('+01:00')
     await offset.press('Enter')
     await expect(utcOf(page, 'day2.jpg')).toHaveText('2026-06-02 09:00:00Z')
     await expect(utcOf(page, 'day1.jpg')).toHaveText('2026-06-01 07:30:00Z')
 
-    // Drift lives behind "Advanced": a clock 73 s fast shifts day 1 back by 73 s.
-    await panel.getByTestId('segment').first().getByText('Advanced').click()
+    // Drift is folded away: a clock 73 s fast shifts day 1 back by 73 s.
+    await panel
+      .getByTestId('segment')
+      .first()
+      .getByRole('button', { name: 'Clock fast or slow' })
+      .click()
     const drift = panel.getByTestId('segment').first().getByLabel('Clock ahead by')
     await drift.fill('73')
     await drift.press('Enter')
     await expect(utcOf(page, 'day1.jpg')).toHaveText('2026-06-01 07:28:47Z')
 
-    // Camera B records its offset: it wins, and a disagreeing confirmed zone is a warning.
+    // Camera B saves its offset in every photo: it's used, and there's no zone to set.
     await selectCamera(page, 'Camera B')
     await expect(utcOf(page, 'recorded.jpg')).toHaveText('2026-06-01 07:30:00Z')
-    const toggle = panel.getByLabel(/Use offsets recorded by the camera/)
+    await expect(
+      page.getByTestId('camera').filter({ hasText: 'Camera B' }).getByTestId('camera-time-label'),
+    ).toHaveText('Saved in photos: UTC+02:00')
+    await expect(panel.getByTestId('recorded-only')).toBeVisible()
+    await expect(panel.getByRole('combobox')).toHaveCount(0)
+    const toggle = panel.getByRole('checkbox', { name: /Use the time zone saved in each photo/ })
     await expect(toggle).toBeChecked()
-    await panel.getByLabel('Time zone from the start').selectOption('America/Vancouver')
-    await expect(panel.getByTestId('time-warnings')).toContainText(
-      'Recorded offset differs from this setting on 1 photo (the recorded one is used)',
-    )
-    await expect(utcOf(page, 'recorded.jpg')).toHaveText('2026-06-01 07:30:00Z')
+    // Ignoring the saved offset brings the zone back, and a disagreeing zone is flagged.
     await toggle.uncheck()
+    await pickZone(panel, 'Time zone from the first photo', 'America/Vancouver')
+    await expect(panel.getByTestId('time-warnings')).toContainText(
+      'Saved time zone differs from this setting on 1 photo',
+    )
     await expect(utcOf(page, 'recorded.jpg')).toHaveText('2026-06-01 16:30:00Z')
 
     await page.screenshot({ path: test.info().outputPath('camera-time.png') })
@@ -131,7 +142,11 @@ test('photos outside the fetched Dawarich range get a banner that refetches a wi
   try {
     await openFolder(app, page, folder)
     await selectCamera(page, 'Camera A')
-    await page.getByLabel('Time zone from the start').selectOption('Europe/Zurich')
+    await pickZone(
+      page.getByTestId('camera-time'),
+      'Time zone from the first photo',
+      'Europe/Zurich',
+    )
 
     await page.getByRole('button', { name: 'Dawarich…' }).click()
     const dialog = page.getByRole('dialog')
@@ -147,8 +162,8 @@ test('photos outside the fetched Dawarich range get a banner that refetches a wi
     await expect(banner).toContainText('The track doesn’t cover 1 photo')
     await banner.getByRole('button', { name: 'Fetch again…' }).click()
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByLabel('From (UTC)')).toHaveValue('2026-06-01T00:00')
-    await expect(dialog.getByLabel('To (UTC)')).toHaveValue('2026-06-02T09:00')
+    await expect(dialog.getByLabel('From (UTC)')).toHaveValue('2026-06-01 00:00')
+    await expect(dialog.getByLabel('To (UTC)')).toHaveValue('2026-06-02 09:00')
     await dialog.getByRole('button', { name: 'Fetch track' }).click()
     await expect(dialog).toBeHidden()
     await expect(banner).toBeHidden()

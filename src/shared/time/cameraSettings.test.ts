@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   type CameraTimeSettings,
   cameraTimeSettingsSchema,
+  copyZones,
   defaultCameraSettings,
   segmentFor,
   splitAt,
@@ -96,5 +97,27 @@ describe('segments', () => {
       kind: 'zone',
       id: 'America/Vancouver',
     })
+  })
+
+  it('copyZones takes the other camera’s zones and changes but keeps this clock’s drift', () => {
+    const fast: CameraTimeSettings = {
+      useRecordedOffsets: false,
+      segments: [{ tz: { kind: 'zone', id: 'Europe/Berlin' }, driftSeconds: 73 }],
+      confirmed: false,
+    }
+    const copied = copyZones(fast, split)
+    expect(copied).toEqual({
+      useRecordedOffsets: false,
+      confirmed: true,
+      segments: [
+        { tz: { kind: 'zone', id: 'America/Los_Angeles' }, driftSeconds: 73 },
+        {
+          startsAt: '2026-11-07T00:00:00',
+          tz: { kind: 'zone', id: 'America/Vancouver' },
+          driftSeconds: 73,
+        },
+      ],
+    })
+    expect(cameraTimeSettingsSchema.safeParse(copied).success).toBe(true)
   })
 })

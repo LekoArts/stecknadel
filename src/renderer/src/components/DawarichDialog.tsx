@@ -11,10 +11,12 @@ import {
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
+import { parseWallInput } from '@renderer/lib/time'
 import type { DawarichState } from '@shared/ipc'
 import type { FetchRange } from '@shared/track/range'
 import type { TrackSummary } from '@shared/track/types'
 import { useEffect, useId, useState } from 'react'
+import { Temporal } from 'temporal-polyfill'
 
 interface DawarichDialogProps {
   state: DawarichState
@@ -32,9 +34,10 @@ type Status =
   | { kind: 'fetching'; page: number; totalPages: number }
   | { kind: 'error'; message: string }
 
-/** `2026-11-02T00:00:00Z` ↔ the `datetime-local` value `2026-11-02T00:00`, both UTC. */
-const toInput = (iso: string): string => iso.slice(0, 16)
-const fromInput = (value: string): string => `${value}:00Z`
+/** `2026-11-02T00:00:00Z` ↔ the typed value `2026-11-02 00:00`, both UTC. */
+const toInput = (iso: string): string => iso.slice(0, 16).replace('T', ' ')
+const fromInput = (value: string): string =>
+  `${(parseWallInput(value) as Temporal.PlainDateTime).toString({ smallestUnit: 'second' })}Z`
 
 function lastWeek(): FetchRange {
   const end = new Date()
@@ -86,7 +89,10 @@ export function DawarichDialog({
   const typedKey = key.trim() || undefined
   const busy = status.kind === 'testing' || status.kind === 'fetching'
   const canConnect = url.trim() !== '' && (typedKey !== undefined || state.hasKey)
-  const rangeValid = start !== '' && end !== '' && start < end
+  const startAt = parseWallInput(start)
+  const endAt = parseWallInput(end)
+  const rangeValid =
+    startAt !== null && endAt !== null && Temporal.PlainDateTime.compare(startAt, endAt) < 0
 
   const test = async (): Promise<void> => {
     setStatus({ kind: 'testing' })
@@ -180,9 +186,10 @@ export function DawarichDialog({
             </Label>
             <Input
               id={`${ids}-start`}
-              type="datetime-local"
+              className="tabular-nums"
+              placeholder="YYYY-MM-DD HH:MM"
               value={start}
-              max={end || undefined}
+              aria-invalid={start !== '' && parseWallInput(start) === null}
               onChange={(e) => setStart(e.target.value)}
               required
             />
@@ -191,9 +198,10 @@ export function DawarichDialog({
             </Label>
             <Input
               id={`${ids}-end`}
-              type="datetime-local"
+              className="tabular-nums"
+              placeholder="YYYY-MM-DD HH:MM"
               value={end}
-              min={start || undefined}
+              aria-invalid={end !== '' && parseWallInput(end) === null}
               onChange={(e) => setEnd(e.target.value)}
               required
             />

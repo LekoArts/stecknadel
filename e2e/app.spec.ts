@@ -27,6 +27,7 @@ test('window opens with the security baseline', async () => {
       'getThumbnail',
       'getTrackGeometry',
       'getTrackState',
+      'getTrackZones',
       'loadGpx',
       'on',
       'openFolder',

@@ -1,4 +1,5 @@
 import { Button } from '@renderer/components/ui/button'
+import { Checkbox } from '@renderer/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -369,7 +370,6 @@ function NumberRow({
         </Label>
         <Input
           id={id}
-          type="number"
           inputMode="decimal"
           className="h-8 w-20 text-right tabular-nums"
           value={value}
@@ -402,12 +402,11 @@ function Check({
 }): React.JSX.Element {
   return (
     <div className="flex items-start gap-2">
-      <input
+      <Checkbox
         id={id}
-        type="checkbox"
-        className="mt-0.5 size-4 accent-primary"
+        className="mt-0.5"
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onCheckedChange={(next) => onChange(next === true)}
       />
       <Label htmlFor={id} className="font-normal leading-snug">
         {children}
@@ -432,7 +431,7 @@ function Radio({
       <input
         type="radio"
         name={name}
-        className="size-4 accent-primary"
+        className="grid size-4 shrink-0 cursor-pointer appearance-none place-content-center rounded-full border border-input shadow-xs outline-none transition-[border-width,border-color] checked:border-[5px] checked:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
         checked={checked}
         onChange={onChange}
       />

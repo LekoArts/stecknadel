@@ -10,7 +10,7 @@ import {
   type OraclePosition,
   readGpxPoints,
 } from '../test/oracle/expected'
-import { launchWithProfile, openFolder } from './helpers/library'
+import { launchWithProfile, openFolder, pickZone } from './helpers/library'
 
 // Own instance: the module singleton cannot be reused once another spec in this worker ends it.
 const exiftool = new ExifTool()
@@ -107,7 +107,7 @@ const selectCamera = (page: Page, name: string) =>
 
 async function setOffset(page: Page, value: string): Promise<void> {
   const panel = page.getByTestId('camera-time')
-  await panel.getByLabel('Time zone from the start').selectOption('__offset')
+  await pickZone(panel, 'Time zone from the first photo', 'fixed')
   const offset = panel.getByLabel('UTC', { exact: true })
   await offset.fill(value)
   await offset.press('Enter')
@@ -161,19 +161,21 @@ test('map preview: pins follow the camera time, offset finder and manual placeme
     await loadGpx(app, page)
 
     await selectCamera(page, 'Camera A')
-    await page
-      .getByTestId('camera-time')
-      .getByLabel('Time zone from the start')
-      .selectOption('Europe/Zurich')
+    await pickZone(
+      page.getByTestId('camera-time'),
+      'Time zone from the first photo',
+      'Europe/Zurich',
+    )
     await selectCamera(page, 'Camera C')
     await setOffset(page, '+00:00')
 
     // Camera B in the wrong zone: day 2 lands after the track, the stay photo in the overnight gap.
     await selectCamera(page, 'Camera B')
-    await page
-      .getByTestId('camera-time')
-      .getByLabel('Time zone from the start')
-      .selectOption('America/Vancouver')
+    await pickZone(
+      page.getByTestId('camera-time'),
+      'Time zone from the first photo',
+      'America/Vancouver',
+    )
     await expect
       .poll(async () => {
         const s = await settled(page, ids)
@@ -245,6 +247,59 @@ test('map preview: pins follow the camera time, offset finder and manual placeme
     await expect(
       page.locator(`[data-photo-id="${ids.get('b-day2.jpg')}"]`).getByTestId('photo-status'),
     ).toHaveAttribute('data-status', 'manual')
+  } finally {
+    await close()
+    await rm(folder, { recursive: true, force: true })
+  }
+})
+
+test('camera zones come from the track, and one camera’s changes copy onto another', async () => {
+  const folder = await previewLibrary()
+  const { app, page, close } = await launchWithProfile()
+  try {
+    await openFolder(app, page, folder)
+    const label = (camera: string) =>
+      page.getByTestId('camera').filter({ hasText: camera }).getByTestId('camera-time-label')
+    await expect(label('Camera A')).toContainText('unconfirmed')
+
+    // The synthetic trip is in Switzerland: with the track loaded, every camera reads Zurich time.
+    await loadGpx(app, page)
+    await expect(label('Camera A')).toHaveText('Europe/Zurich')
+    await expect(label('Camera C')).toHaveText('Europe/Zurich')
+    await selectCamera(page, 'Camera A')
+    const panel = page.getByTestId('camera-time')
+    await expect(panel.getByTestId('detected')).toBeVisible()
+    await expect(panel.getByTestId('unconfirmed')).toBeHidden()
+
+    // Zones on the trip are offered first.
+    await panel.getByRole('combobox', { name: 'Time zone from the first photo' }).click()
+    await expect(page.getByRole('group', { name: 'On this trip' }).getByRole('option')).toHaveText([
+      /^Europe\/Zurich/,
+    ])
+    await page.keyboard.press('Escape')
+
+    // Camera A: a change to +01:00 on day 2, then Camera C copies it.
+    await panel.getByRole('button', { name: 'Clock changed…' }).click()
+    await panel
+      .getByLabel('Camera time of the first photo after the change')
+      .fill('2026-06-02 00:00')
+    await panel.getByRole('button', { name: 'Add', exact: true }).click()
+    await pickZone(panel, 'Time zone from 2026-06-02 00:00:00', 'fixed')
+    const offset = panel.getByLabel('UTC', { exact: true })
+    await offset.fill('+01:00')
+    await offset.press('Enter')
+    await expect(label('Camera A')).toHaveText('Europe/Zurich + 1 change')
+
+    await selectCamera(page, 'Camera C')
+    await panel.getByRole('button', { name: 'Copy from…' }).click()
+    await page
+      .getByRole('dialog', { name: 'Copy time zones from' })
+      .getByRole('button', { name: /^Camera A/ })
+      .click()
+    await expect(panel.getByTestId('segment')).toHaveCount(2)
+    await expect(panel.getByTestId('detected')).toBeHidden()
+    await expect(label('Camera C')).toHaveText('Europe/Zurich + 1 change')
+    await page.screenshot({ path: test.info().outputPath('copied-zones.png') })
   } finally {
     await close()
     await rm(folder, { recursive: true, force: true })

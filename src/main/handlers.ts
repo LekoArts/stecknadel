@@ -15,6 +15,7 @@ import type { ThumbnailCache } from './thumbs'
 import { bridgeTrack } from './track/bridge'
 import { DawarichError, fetchDawarichTrack, parseDawarichUrl, testDawarich } from './track/dawarich'
 import { parseGpx } from './track/gpx'
+import { trackZones } from './track/zones'
 
 export interface HandlerDeps {
   et: ExifTool
@@ -36,6 +37,7 @@ export interface HandlerDeps {
 
 export function createHandlers(deps: HandlerDeps): Handlers {
   const { library, settings, secrets, tracks } = deps
+  const zoneCache = new WeakMap<Track, Promise<(string | null)[]>>()
 
   const dawarichState = async (): Promise<DawarichState> => ({
     url: settings.get().dawarichUrl,
@@ -115,6 +117,17 @@ export function createHandlers(deps: HandlerDeps): Handlers {
         intervals: bridgeTrack(track.points, geoMaxIntSecs, bridge).intervals,
         geoMaxIntSecs,
       }
+    },
+    getTrackZones: async () => {
+      const track = tracks.current
+      if (!track) return null
+      let zones = zoneCache.get(track)
+      if (!zones) {
+        zones = trackZones(deps.et, track.points)
+        zoneCache.set(track, zones)
+        zones.catch(() => zoneCache.delete(track))
+      }
+      return zones
     },
     getSettings: async () => settingsView(),
     saveSettings: async ({ matching, writing, mapSource }) => {
