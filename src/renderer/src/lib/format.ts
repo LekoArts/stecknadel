@@ -4,3 +4,8 @@ export function formatCaptureTime(captureTime: string, offset: string | null): s
   const text = `${date.replaceAll(':', '-')} ${time}`
   return offset ? `${text} ${offset.replace('-', '−')}` : text
 }
+
+/** `2026-11-02T05:42:49Z` → `2026-11-02 05:42` (the caller says it's UTC). */
+export function formatUtc(iso: string): string {
+  return iso.slice(0, 16).replace('T', ' ')
+}

@@ -16,12 +16,17 @@ test('window opens with the security baseline', async () => {
     expect(renderer.require).toBe('undefined')
     expect(renderer.process).toBe('undefined')
     expect(renderer.api.sort()).toEqual([
+      'fetchDawarich',
       'getAppInfo',
       'getMetadata',
       'getThumbnail',
+      'getTrackState',
+      'loadGpx',
       'on',
       'openFolder',
       'renameCamera',
+      'saveDawarichSettings',
+      'testDawarich',
     ])
 
     const rendererSandboxed = await app.evaluate(({ app: electronApp, BrowserWindow }) => {

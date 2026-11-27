@@ -1,10 +1,14 @@
 import { CameraList } from '@renderer/components/CameraList'
 import { MetadataPanel } from '@renderer/components/MetadataPanel'
 import { PhotoGrid } from '@renderer/components/PhotoGrid'
+import { TrackPanel } from '@renderer/components/TrackPanel'
 import { Button } from '@renderer/components/ui/button'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
 import { clearThumbnailCache } from '@renderer/lib/thumbnails'
+import type { DawarichState } from '@shared/ipc'
 import type { LibraryProgress, LibrarySnapshot } from '@shared/library'
+import { defaultFetchRange } from '@shared/track/range'
+import type { TrackSummary } from '@shared/track/types'
 import { FolderOpen } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -18,6 +22,15 @@ export default function App(): React.JSX.Element {
   const [load, setLoad] = useState<Load>({ status: 'idle' })
   const [cameraFilter, setCameraFilter] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [track, setTrack] = useState<TrackSummary | null>(null)
+  const [dawarich, setDawarich] = useState<DawarichState | null>(null)
+
+  useEffect(() => {
+    void window.stecknadel.getTrackState().then((state) => {
+      setTrack(state.track)
+      setDawarich(state.dawarich)
+    })
+  }, [])
 
   useEffect(
     () =>
@@ -63,6 +76,10 @@ export default function App(): React.JSX.Element {
     () => library?.photos.find((p) => p.id === selectedId) ?? null,
     [library, selectedId],
   )
+  const fetchRange = useMemo(
+    () => (library ? defaultFetchRange(library.photos.map((p) => p.captureTime)) : null),
+    [library],
+  )
   const loading = load.status === 'loading'
 
   return (
@@ -91,6 +108,15 @@ export default function App(): React.JSX.Element {
             />
           </div>
         )}
+        <div className="mt-auto">
+          <TrackPanel
+            track={track}
+            dawarich={dawarich}
+            defaultRange={fetchRange}
+            onTrack={setTrack}
+            onDawarich={setDawarich}
+          />
+        </div>
       </aside>
 
       <main aria-label="Map" className="flex items-center justify-center bg-muted/40">

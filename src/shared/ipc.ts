@@ -7,8 +7,20 @@ import type {
   ThumbnailResult,
 } from './library'
 import { PHOTO_ID_PATTERN } from './library'
+import type { TrackSummary } from './track/types'
 
 const photoRef = z.strictObject({ id: z.string().regex(PHOTO_ID_PATTERN) })
+
+const MAX_FETCH_DAYS = 400
+const utcInstant = z.iso.datetime({ offset: false })
+
+/** What the renderer may know about the Dawarich connection: never the key itself. */
+export interface DawarichState {
+  url: string | null
+  hasKey: boolean
+  /** False when the OS offers no secure storage; the key can't be saved then. */
+  secureStorage: boolean
+}
 
 /**
  * The typed IPC contract between renderer and main. Every renderer → main call is listed here
@@ -44,6 +56,42 @@ export const ipcContract = {
     input: z.strictObject({ key: z.string().min(1).max(500), name: z.string().max(100) }),
     output: z.custom<CameraSummary[]>(),
   },
+  getTrackState: {
+    input: z.undefined(),
+    output: z.custom<{ track: TrackSummary | null; dawarich: DawarichState }>(),
+  },
+  /** Shows the GPX file picker and loads the chosen file; null when cancelled. */
+  loadGpx: {
+    input: z.undefined(),
+    output: z.custom<TrackSummary | null>(),
+  },
+  /** Saves the server address and, if given, a new API key (write-only). */
+  saveDawarichSettings: {
+    input: z.strictObject({
+      url: z.string().min(1).max(2000),
+      key: z.string().min(1).max(4096).optional(),
+    }),
+    output: z.custom<DawarichState>(),
+  },
+  /** Checks address and key (the stored key when none is given) without saving them. */
+  testDawarich: {
+    input: z.strictObject({
+      url: z.string().min(1).max(2000),
+      key: z.string().min(1).max(4096).optional(),
+    }),
+    output: z.custom<{ version: string | null }>(),
+  },
+  /** Fetches the points in [start, end] with the saved address and key. */
+  fetchDawarich: {
+    input: z
+      .strictObject({ start: utcInstant, end: utcInstant })
+      .refine((r) => Date.parse(r.start) < Date.parse(r.end), 'start must be before end')
+      .refine(
+        (r) => Date.parse(r.end) - Date.parse(r.start) <= MAX_FETCH_DAYS * 86_400_000,
+        `at most ${MAX_FETCH_DAYS} days`,
+      ),
+    output: z.custom<TrackSummary>(),
+  },
 } as const
 
 export type IpcContract = typeof ipcContract
@@ -58,9 +106,10 @@ export const ipcChannel = (name: IpcName): string => `stecknadel:${name}`
 /** main → renderer events. */
 export interface IpcEvents {
   libraryProgress: LibraryProgress
+  trackProgress: { page: number; totalPages: number }
 }
 export type IpcEventName = keyof IpcEvents
-export const ipcEventNames: IpcEventName[] = ['libraryProgress']
+export const ipcEventNames: IpcEventName[] = ['libraryProgress', 'trackProgress']
 export const ipcEventChannel = (name: IpcEventName): string => `stecknadel:event:${name}`
 
 export type StecknadelApi = {

@@ -3,13 +3,24 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { ipcEventChannel } from '@shared/ipc'
-import { app, BrowserWindow, dialog, nativeImage, protocol, session, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  nativeImage,
+  protocol,
+  safeStorage,
+  session,
+  shell,
+} from 'electron'
 import { CameraNames } from './cameras-store'
 import { CONTENT_SECURITY_POLICY, DEV_CONTENT_SECURITY_POLICY } from './csp'
 import { exiftool } from './exiftool'
 import { createHandlers } from './handlers'
 import { registerIpc } from './ipc'
 import { Library } from './library/library'
+import { Secrets } from './secrets'
+import { SettingsStore } from './settings'
 import { runSmoke } from './smoke'
 import { type ImageOps, THUMB_SCHEME, ThumbnailCache } from './thumbs'
 
@@ -97,6 +108,13 @@ function createWindow(): void {
   }
 }
 
+async function choosePath(options: Electron.OpenDialogOptions): Promise<string | null> {
+  const result = mainWindow
+    ? await dialog.showOpenDialog(mainWindow, options)
+    : await dialog.showOpenDialog(options)
+  return result.canceled ? null : (result.filePaths[0] ?? null)
+}
+
 async function smokeAndExit(file: string): Promise<void> {
   let code = 1
   try {
@@ -141,6 +159,9 @@ app.whenReady().then(async () => {
   const cameraNames = new CameraNames(join(userData, 'cameras.json'))
   await cameraNames.load()
   const library = new Library(exiftool, () => cameraNames.all())
+  const settings = new SettingsStore(join(userData, 'settings.json'))
+  await settings.load()
+  const secrets = new Secrets(join(userData, 'secrets.bin'), safeStorage)
   const thumbs = new ThumbnailCache(join(userData, 'thumbs'), exiftool, imageOps)
 
   protocol.handle(THUMB_SCHEME, async (request) => {
@@ -167,16 +188,16 @@ app.whenReady().then(async () => {
         exiftoolVersion: await exiftool.version(),
         platform: process.platform as 'darwin' | 'win32' | 'linux',
       }),
-      chooseFolder: async () => {
-        const options: Electron.OpenDialogOptions = {
-          title: 'Open photo folder',
-          properties: ['openDirectory'],
-        }
-        const result = mainWindow
-          ? await dialog.showOpenDialog(mainWindow, options)
-          : await dialog.showOpenDialog(options)
-        return result.canceled ? null : (result.filePaths[0] ?? null)
-      },
+      settings,
+      secrets,
+      tracks: { current: null },
+      chooseFolder: () => choosePath({ title: 'Open photo folder', properties: ['openDirectory'] }),
+      chooseGpxFile: () =>
+        choosePath({
+          title: 'Load GPX track',
+          properties: ['openFile'],
+          filters: [{ name: 'GPX track', extensions: ['gpx'] }],
+        }),
       send: (event, payload) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(ipcEventChannel(event), payload)

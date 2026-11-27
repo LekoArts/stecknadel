@@ -9,6 +9,8 @@ import { CameraNames } from './cameras-store'
 import { createHandlers } from './handlers'
 import { registerIpc } from './ipc'
 import { Library } from './library/library'
+import { Secrets } from './secrets'
+import { SettingsStore } from './settings'
 import type { ThumbnailCache } from './thumbs'
 
 type Invoke = (event: Partial<IpcMainInvokeEvent>, input: unknown) => Promise<unknown>
@@ -29,6 +31,8 @@ let et: ExifTool
 let library: Library
 const thumbRequests: string[] = []
 const chooseFolder = vi.fn<() => Promise<string | null>>()
+const chooseGpxFile = vi.fn<() => Promise<string | null>>()
+const SECRET = 'sk-test-secret-key-1234'
 
 const invoke = (name: IpcName, input?: unknown, event = trusted): Promise<unknown> =>
   (registered.get(ipcChannel(name)) as Invoke)(event, input)
@@ -51,7 +55,15 @@ beforeAll(async () => {
         },
       } as unknown as ThumbnailCache,
       appInfo: async () => ({ version: '0.0.0', exiftoolVersion: '13.64', platform: 'darwin' }),
+      settings: new SettingsStore(join(dir, 'userData/settings.json')),
+      secrets: new Secrets(join(dir, 'userData/secrets.bin'), {
+        isEncryptionAvailable: () => true,
+        encryptString: (plain) => Buffer.from(plain.split('').reverse().join('')),
+        decryptString: (enc) => enc.toString().split('').reverse().join(''),
+      }),
+      tracks: { current: null },
       chooseFolder,
+      chooseGpxFile,
       send: () => {},
     }),
     () => window,
@@ -130,6 +142,37 @@ describe('IPC authorization', () => {
       name: '  Trip camera ',
     })) as { name: string }[]
     expect(cameras[0].name).toBe('Trip camera')
+  })
+
+  it('loads a GPX track chosen in main’s dialog', async () => {
+    chooseGpxFile.mockResolvedValueOnce(join(__dirname, '../../test/fixtures/synthetic-trip.gpx'))
+    const summary = (await invoke('loadGpx')) as { count: number }
+    expect(summary.count).toBe(663)
+    const state = (await invoke('getTrackState')) as { track: { count: number } }
+    expect(state.track.count).toBe(663)
+    chooseGpxFile.mockResolvedValueOnce(null)
+    await expect(invoke('loadGpx')).resolves.toBeNull()
+  })
+
+  it('stores the Dawarich key write-only: no channel ever returns it', async () => {
+    await expect(
+      invoke('saveDawarichSettings', { url: 'http://dawarich.example.com', key: SECRET }),
+    ).rejects.toThrow(/https/)
+    const state = await invoke('saveDawarichSettings', {
+      url: 'https://dawarich.example.com',
+      key: ` ${SECRET} `,
+    })
+    expect(state).toEqual({
+      url: 'https://dawarich.example.com/',
+      hasKey: true,
+      secureStorage: true,
+    })
+    const all = JSON.stringify([state, await invoke('getTrackState')])
+    expect(all).not.toContain(SECRET)
+    // Saving only the address keeps the stored key.
+    await expect(
+      invoke('saveDawarichSettings', { url: 'https://dawarich.example.com/' }),
+    ).resolves.toMatchObject({ hasKey: true })
   })
 
   it('returns null without loading anything when the folder dialog is cancelled', async () => {
