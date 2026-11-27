@@ -94,35 +94,44 @@ export default function App(): React.JSX.Element {
   const settingsKey = settings ? JSON.stringify([settings.matching, settings.writing]) : null
   const matchingKey = settings ? JSON.stringify(settings.matching) : null
   const defaultSettings = useMemo(() => defaultCameraSettings(localZone()), [])
+  // Renaming a camera replaces the library wrapper but not its photos: derive from the array so a
+  // rename doesn't rerun zone detection, UTC conversion and the preview.
+  const libraryPhotos = library?.photos ?? null
   // Settings from the track for each camera the user hasn't set: the clock showed local time.
   const detected = useMemo(() => {
     const out = new Map<string, CameraTimeSettings>()
-    if (!library || !geometry || !trackZones || trackZones.length !== geometry.points.length) {
+    if (
+      !libraryPhotos ||
+      !geometry ||
+      !trackZones ||
+      trackZones.length !== geometry.points.length
+    ) {
       return out
     }
     const zoned = { points: geometry.points, zones: trackZones }
-    const byCamera = Map.groupBy(library.photos, (p) => p.cameraKey)
+    const byCamera = Map.groupBy(libraryPhotos, (p) => p.cameraKey)
     for (const [key, photos] of byCamera) {
       const found = detectCameraSettings(photos, zoned, true)
       if (found) out.set(key, found)
     }
     return out
-  }, [library, geometry, trackZones])
+  }, [libraryPhotos, geometry, trackZones])
   const tripZones = useMemo(
     () => [...new Set(trackZones?.filter((z): z is string => z !== null))],
     [trackZones],
   )
   // Every camera's settings, defaults included: what the preview (and later the write) uses.
   const cameraSettings = useMemo(() => {
+    const keys = new Set(detected.keys())
+    for (const p of libraryPhotos ?? []) keys.add(p.cameraKey)
+    for (const key of Object.keys(timeSettings)) keys.add(key)
     const out: Record<string, CameraTimeSettings> = {}
-    for (const c of library?.cameras ?? []) {
-      out[c.key] = timeSettings[c.key] ?? detected.get(c.key) ?? defaultSettings
-    }
+    for (const key of keys) out[key] = timeSettings[key] ?? detected.get(key) ?? defaultSettings
     return out
-  }, [library, timeSettings, detected, defaultSettings])
+  }, [libraryPhotos, timeSettings, detected, defaultSettings])
   const originOf = (key: string): TimeOrigin =>
     timeSettings[key] ? 'user' : detected.has(key) ? 'track' : 'default'
-  const preview = usePreview(library, track, cameraSettings, manual, settingsKey)
+  const preview = usePreview(libraryPhotos, track, cameraSettings, manual, settingsKey)
 
   // Bridged stays depend on the matching settings too.
   // biome-ignore lint/correctness/useExhaustiveDependencies: matchingKey is a refetch trigger
@@ -144,6 +153,7 @@ export default function App(): React.JSX.Element {
     }
   }, [track, matchingKey, retryKey])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryKey is a refetch trigger
   useEffect(() => {
     setTrackZones(null)
     if (!track) return
@@ -161,6 +171,7 @@ export default function App(): React.JSX.Element {
     }
   }, [track, retryKey])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryKey is a refetch trigger
   useEffect(() => {
     window.stecknadel.getTrackState().then(
       (state) => {
@@ -225,22 +236,22 @@ export default function App(): React.JSX.Element {
     [library, selectedId],
   )
   const fetchRange = useMemo(
-    () => (library ? defaultFetchRange(library.photos.map((p) => p.captureTime)) : null),
-    [library],
+    () => (libraryPhotos ? defaultFetchRange(libraryPhotos.map((p) => p.captureTime)) : null),
+    [libraryPhotos],
   )
   const settingsFor = (key: string): CameraTimeSettings => cameraSettings[key] ?? defaultSettings
 
   const utcs = useMemo(() => {
     const map = new Map<string, PhotoUtc>()
-    for (const p of library?.photos ?? []) {
+    for (const p of libraryPhotos ?? []) {
       map.set(p.id, photoUtc(p, cameraSettings[p.cameraKey] ?? defaultSettings))
     }
     return map
-  }, [library, cameraSettings, defaultSettings])
+  }, [libraryPhotos, cameraSettings, defaultSettings])
 
   const cameraStats = useMemo(() => {
     const stats = new Map<string, CameraTimeStats>()
-    for (const p of library?.photos ?? []) {
+    for (const p of libraryPhotos ?? []) {
       const s = stats.get(p.cameraKey) ?? {
         noTime: 0,
         ambiguous: 0,
@@ -263,7 +274,7 @@ export default function App(): React.JSX.Element {
     }
     for (const s of stats.values()) s.offsets.sort()
     return stats
-  }, [library, utcs])
+  }, [libraryPhotos, utcs])
 
   const timeLabels = useMemo(() => {
     const labels = new Map<string, CameraTimeLabel>()
@@ -317,7 +328,7 @@ export default function App(): React.JSX.Element {
   }, [preview.snapshot, cameraPhotos, statuses, utcs])
   // Without a preview there are no statuses to filter by.
   const activeStatusFilter = groupCounts ? statusFilter : null
-  const photos = useMemo(() => {
+  const shownPhotos = useMemo(() => {
     const filtered =
       activeStatusFilter === null
         ? cameraPhotos
@@ -622,7 +633,7 @@ export default function App(): React.JSX.Element {
                       onStatusFilter={setStatusFilter}
                     />
                     <div className="min-h-0 flex-1">
-                      {photos.length === 0 ? (
+                      {shownPhotos.length === 0 ? (
                         <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
                           <p>No photos match</p>
                           <Button
@@ -638,7 +649,7 @@ export default function App(): React.JSX.Element {
                         </div>
                       ) : view === 'list' ? (
                         <PhotoList
-                          photos={photos}
+                          photos={shownPhotos}
                           cameraNames={cameraNames}
                           utcs={utcs}
                           statuses={statuses}
@@ -650,7 +661,7 @@ export default function App(): React.JSX.Element {
                         />
                       ) : (
                         <PhotoGrid
-                          photos={photos}
+                          photos={shownPhotos}
                           cameraNames={cameraNames}
                           utcs={utcs}
                           statuses={statuses}

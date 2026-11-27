@@ -1,4 +1,4 @@
-import type { LibrarySnapshot } from '@shared/library'
+import type { PhotoSummary } from '@shared/library'
 import type { Position, PreviewSnapshot } from '@shared/preview'
 import type { CameraTimeSettings } from '@shared/time/cameraSettings'
 import type { TrackSummary } from '@shared/track/types'
@@ -20,7 +20,7 @@ export interface PreviewState {
  * again is dropped: only the newest run's answer is kept.
  */
 export function usePreview(
-  library: LibrarySnapshot | null,
+  photos: PhotoSummary[] | null,
   track: TrackSummary | null,
   cameras: Record<string, CameraTimeSettings>,
   manual: Record<string, Position>,
@@ -31,7 +31,7 @@ export function usePreview(
   const generation = useRef(0)
 
   useEffect(() => {
-    if (!library || !track || track.count === 0 || settingsKey === null) {
+    if (!photos || !track || track.count === 0 || settingsKey === null) {
       setState({ snapshot: null, running: false, error: null })
       return
     }
@@ -51,7 +51,7 @@ export function usePreview(
       )
     }, DEBOUNCE_MS)
     return () => clearTimeout(timer)
-  }, [library, track, cameras, manual, settingsKey])
+  }, [photos, track, cameras, manual, settingsKey])
 
   return state
 }

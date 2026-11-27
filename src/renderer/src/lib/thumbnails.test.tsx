@@ -19,7 +19,10 @@ function deferred(): Deferred {
   return { promise, resolve }
 }
 
-const thumb = (name: string): ThumbnailResult => ({ url: `stecknadel-thumb://thumb/${name}.jpg`, rotate: 0 })
+const thumb = (name: string): ThumbnailResult => ({
+  url: `stecknadel-thumb://thumb/${name}.jpg`,
+  rotate: 0,
+})
 
 describe('useThumbnail', () => {
   beforeEach(() => {

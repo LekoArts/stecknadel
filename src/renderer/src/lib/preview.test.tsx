@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import type { LibrarySnapshot } from '@shared/library'
+import type { PhotoSummary } from '@shared/library'
 import type { PreviewSnapshot } from '@shared/preview'
 import type { CameraTimeSettings } from '@shared/time/cameraSettings'
 import type { TrackSummary } from '@shared/track/types'
@@ -7,7 +7,7 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePreview } from './preview'
 
-const library = { folderName: 'trip', photos: [], cameras: [] } as unknown as LibrarySnapshot
+const PHOTOS: PhotoSummary[] = []
 const track = { count: 1 } as TrackSummary
 const zurich = { segments: [{ tz: { kind: 'zone', id: 'Europe/Zurich' }, driftSeconds: 0 }] }
 const tokyo = { segments: [{ tz: { kind: 'zone', id: 'Asia/Tokyo' }, driftSeconds: 0 }] }
@@ -61,7 +61,7 @@ describe('usePreview', () => {
 
   it('drops a run whose answers arrive after the inputs changed', async () => {
     const { result, rerender } = renderHook(
-      ({ zones }) => usePreview(library, track, zones, MANUAL, 'settings'),
+      ({ zones }) => usePreview(PHOTOS, track, zones, MANUAL, 'settings'),
       { initialProps: { zones: ZURICH } },
     )
     act(() => {
@@ -94,7 +94,7 @@ describe('usePreview', () => {
 
   it('keeps the last snapshot and shows the error when a run fails', async () => {
     const { result, rerender } = renderHook(
-      ({ zones }) => usePreview(library, track, zones, MANUAL, 'settings'),
+      ({ zones }) => usePreview(PHOTOS, track, zones, MANUAL, 'settings'),
       { initialProps: { zones: ZURICH } },
     )
     act(() => {
@@ -119,7 +119,7 @@ describe('usePreview', () => {
 
   it('drops the running state when the track goes away', async () => {
     const { result, rerender } = renderHook(
-      ({ summary }) => usePreview(library, summary, ZURICH, MANUAL, 'settings'),
+      ({ summary }) => usePreview(PHOTOS, summary, ZURICH, MANUAL, 'settings'),
       { initialProps: { summary: track as TrackSummary | null } },
     )
     act(() => {

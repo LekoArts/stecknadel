@@ -11,6 +11,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 maplibregl.setWorkerUrl(workerUrl)
 
+const MAX_TWEENED_PINS = 400
 const TWEEN_MS = 250
 
 export interface MapPin {
@@ -260,7 +261,8 @@ export function MapView({
     })
     cancelAnimationFrame(frame.current)
     const target = new Map(pins.map((p): [string, Coords] => [p.id, [p.lon, p.lat]]))
-    if (moving.length === 0 || reduceMotion()) {
+    // Each frame rebuilds every feature: past this many pins the tween costs more than it shows.
+    if (moving.length === 0 || reduceMotion() || pins.length > MAX_TWEENED_PINS) {
       drawn.current = target
       source.setData(pinFeatures(pins, target, selectedId))
       return

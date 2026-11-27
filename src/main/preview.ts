@@ -136,6 +136,8 @@ export interface PreviewContext {
 interface PreparedTrack {
   track: Track
   key: string
+  /** The matching rules the bridged track was built with. */
+  rules: string
   dir: string
   gpx: string
   points: { t: number; lat: number; lon: number }[]
@@ -286,7 +288,7 @@ export class PreviewEngine {
     bridge: BridgeRules,
   ): Promise<PreparedTrack> {
     const rules = JSON.stringify([limits, bridge])
-    if (this.prepared?.track === track && this.prepared.key.endsWith(rules)) return this.prepared
+    if (this.prepared?.track === track && this.prepared.rules === rules) return this.prepared
     const old = this.prepared
     const { points, intervals } = bridgeTrack(track.points, limits.geoMaxIntSecs, bridge)
     const dir = await mkdtemp(join(tmpdir(), 'stecknadel-track-'))
@@ -295,6 +297,7 @@ export class PreviewEngine {
     this.prepared = {
       track,
       key: `${++trackSerial}:${rules}`,
+      rules,
       dir,
       gpx,
       points: track.points,
