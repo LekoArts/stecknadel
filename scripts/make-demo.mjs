@@ -23,9 +23,9 @@
 //                     as Seoul time, the Myeongdong photo lands at the hotel; the offset finder
 //                     fixes it.
 //   Fujifilm X100VI   saves the time zone in each photo: nothing to set.
-//   Canon EOS R       RAW, clock 2 min 13 s fast (find it with the offset finder). The same shot
-//                     as .CR3 and a converted .DNG: they'd share one .xmp, so writing to sidecars
-//                     excludes both.
+//   Canon EOS R       RAW, clock 2 min 13 s fast, shot while walking from Fort Mason towards the
+//                     Golden Gate (find it with the offset finder). The same shot as .CR3 and a
+//                     converted .DNG: they'd share one .xmp, so writing to sidecars excludes both.
 //   iPhone 15 Pro     already has GPS.
 //   exports/          an edited export with its metadata stripped (no camera, no capture time)
 //                     and a file that isn't a photo.
@@ -104,7 +104,7 @@ const track = [
     ['2026-11-01T19:40:00Z', 'lombard'],
     ['2026-11-01T20:00:00Z', 'lombard'],
     ['2026-11-01T20:30:00Z', 'fortMason'],
-    ['2026-11-01T20:50:00Z', 'fortMason'],
+    ['2026-11-01T20:35:00Z', 'fortMason'],
     ['2026-11-01T22:00:00Z', 'goldenGate'],
     ['2026-11-01T22:40:00Z', 'goldenGate'],
     ['2026-11-02T00:00:00Z', 'sfHotel'],
