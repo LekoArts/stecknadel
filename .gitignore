@@ -18,3 +18,8 @@ test/live/
 
 # local planning / proof files
 .mastracode/
+
+# local agent skills
+.agents/
+.claude/
+skills-lock.json
