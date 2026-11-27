@@ -1,11 +1,47 @@
 import { describe, expect, it } from 'vitest'
 import { type IpcName, ipcChannel, ipcContract, ipcNames } from './ipc'
 
+const id = `p${'0123456789abcdef'.repeat(2).slice(0, 24)}`
+
 /** For every channel: inputs its schema must accept and inputs it must reject. */
 const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
   getAppInfo: {
     valid: [undefined],
     invalid: [null, {}, 'x', 1, [], { path: '/etc/passwd' }],
+  },
+  openFolder: {
+    valid: [undefined],
+    invalid: [null, {}, '/Users', { path: '/Users' }, { folder: '/Users' }],
+  },
+  getThumbnail: {
+    valid: [{ id }],
+    invalid: [
+      undefined,
+      {},
+      id,
+      { id: '/etc/passwd' },
+      { id: '../p0123456789abcdef01234567' },
+      { id: `${id}x` },
+      { id: id.toUpperCase() },
+      { id, path: '/etc/passwd' },
+    ],
+  },
+  getMetadata: {
+    valid: [{ id }],
+    invalid: [undefined, { id: 'C:\\photo.jpg' }, { id: 1 }, { id, extra: true }],
+  },
+  renameCamera: {
+    valid: [
+      { key: 'serial:FUJIFILM|3A006341', name: 'Fuji' },
+      { key: 'unknown', name: '' },
+    ],
+    invalid: [
+      undefined,
+      { key: '', name: 'x' },
+      { key: 'k' },
+      { key: 'k', name: 'x'.repeat(101) },
+      { key: 'k', name: 'x', path: '/tmp/cameras.json' },
+    ],
   },
 }
 

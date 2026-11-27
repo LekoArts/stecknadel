@@ -1,11 +1,46 @@
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { app, BrowserWindow, session, shell } from 'electron'
+import { ipcEventChannel } from '@shared/ipc'
+import { app, BrowserWindow, dialog, nativeImage, protocol, session, shell } from 'electron'
+import { CameraNames } from './cameras-store'
 import { CONTENT_SECURITY_POLICY, DEV_CONTENT_SECURITY_POLICY } from './csp'
 import { exiftool } from './exiftool'
+import { createHandlers } from './handlers'
 import { registerIpc } from './ipc'
+import { Library } from './library/library'
 import { runSmoke } from './smoke'
+import { type ImageOps, THUMB_SCHEME, ThumbnailCache } from './thumbs'
+
+// Lets the packaged-app tests run against a throwaway profile.
+if (process.env.STECKNADEL_USER_DATA) app.setPath('userData', process.env.STECKNADEL_USER_DATA)
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: THUMB_SCHEME, privileges: { standard: true, secure: true } },
+])
+
+const imageOps: ImageOps = {
+  resizeJpeg(jpeg, size) {
+    const image = nativeImage.createFromBuffer(jpeg)
+    if (image.isEmpty()) return null
+    const { width, height } = image.getSize()
+    const scale = size / Math.max(width, height)
+    const out =
+      scale < 1
+        ? image.resize({
+            width: Math.round(width * scale),
+            height: Math.round(height * scale),
+            quality: 'good',
+          })
+        : image
+    return out.toJPEG(82)
+  },
+  async osThumbnail(file, size) {
+    const image = await nativeImage.createThumbnailFromPath(file, { width: size, height: size })
+    return image.isEmpty() ? null : image.toJPEG(82)
+  },
+}
 
 const rendererIndex = join(__dirname, '../renderer/index.html')
 const devUrl = is.dev ? process.env.ELECTRON_RENDERER_URL : undefined
@@ -80,7 +115,7 @@ app.on('before-quit', () => {
   void exiftool.end()
 })
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   const smokeFile = process.env.STECKNADEL_SMOKE_FILE
   if (smokeFile) {
     void smokeAndExit(smokeFile)
@@ -102,14 +137,52 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  const userData = app.getPath('userData')
+  const cameraNames = new CameraNames(join(userData, 'cameras.json'))
+  await cameraNames.load()
+  const library = new Library(exiftool, () => cameraNames.all())
+  const thumbs = new ThumbnailCache(join(userData, 'thumbs'), exiftool, imageOps)
+
+  protocol.handle(THUMB_SCHEME, async (request) => {
+    const url = new URL(request.url)
+    const file = url.host === 'thumb' ? thumbs.resolve(url.pathname) : null
+    if (!file) return new Response(null, { status: 404 })
+    try {
+      return new Response(await readFile(file), {
+        headers: { 'content-type': 'image/jpeg', 'cache-control': 'max-age=31536000, immutable' },
+      })
+    } catch {
+      return new Response(null, { status: 404 })
+    }
+  })
+
   registerIpc(
-    {
-      getAppInfo: async () => ({
+    createHandlers({
+      et: exiftool,
+      library,
+      thumbs,
+      cameraNames,
+      appInfo: async () => ({
         version: app.getVersion(),
         exiftoolVersion: await exiftool.version(),
         platform: process.platform as 'darwin' | 'win32' | 'linux',
       }),
-    },
+      chooseFolder: async () => {
+        const options: Electron.OpenDialogOptions = {
+          title: 'Open photo folder',
+          properties: ['openDirectory'],
+        }
+        const result = mainWindow
+          ? await dialog.showOpenDialog(mainWindow, options)
+          : await dialog.showOpenDialog(options)
+        return result.canceled ? null : (result.filePaths[0] ?? null)
+      },
+      send: (event, payload) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(ipcEventChannel(event), payload)
+        }
+      },
+    }),
     () => mainWindow,
     isAppUrl,
   )

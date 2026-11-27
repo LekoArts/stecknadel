@@ -15,7 +15,14 @@ test('window opens with the security baseline', async () => {
     }))
     expect(renderer.require).toBe('undefined')
     expect(renderer.process).toBe('undefined')
-    expect(renderer.api).toEqual(['getAppInfo'])
+    expect(renderer.api.sort()).toEqual([
+      'getAppInfo',
+      'getMetadata',
+      'getThumbnail',
+      'on',
+      'openFolder',
+      'renameCamera',
+    ])
 
     const rendererSandboxed = await app.evaluate(({ app: electronApp, BrowserWindow }) => {
       const pid = BrowserWindow.getAllWindows()[0].webContents.getOSProcessId()
