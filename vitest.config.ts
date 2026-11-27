@@ -6,6 +6,8 @@ export default defineConfig({
     alias: {
       '@shared': resolve('src/shared'),
       '@renderer': resolve('src/renderer/src'),
+      // Test-only: the independent oracle (never imported by app code).
+      '@oracle': resolve('test/oracle'),
     },
   },
   test: {

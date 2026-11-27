@@ -3,8 +3,14 @@ import type { CameraSummary } from '@shared/library'
 import { Pencil } from 'lucide-react'
 import { useState } from 'react'
 
+export interface CameraTimeLabel {
+  text: string
+  unconfirmed: boolean
+}
+
 interface CameraListProps {
   cameras: CameraSummary[]
+  timeLabels: Map<string, CameraTimeLabel>
   total: number
   selectedKey: string | null
   onSelect: (key: string | null) => void
@@ -13,6 +19,7 @@ interface CameraListProps {
 
 export function CameraList({
   cameras,
+  timeLabels,
   total,
   selectedKey,
   onSelect,
@@ -35,6 +42,7 @@ export function CameraList({
         <CameraRow
           key={camera.key}
           camera={camera}
+          time={timeLabels.get(camera.key)}
           selected={camera.key === selectedKey}
           onSelect={() => onSelect(camera.key === selectedKey ? null : camera.key)}
           onRename={(name) => onRename(camera.key, name)}
@@ -53,11 +61,13 @@ const rowClass = (selected: boolean): string =>
 
 function CameraRow({
   camera,
+  time,
   selected,
   onSelect,
   onRename,
 }: {
   camera: CameraSummary
+  time: CameraTimeLabel | undefined
   selected: boolean
   onSelect: () => void
   onRename: (name: string) => Promise<void>
@@ -125,6 +135,17 @@ function CameraRow({
             {renamed && (
               <span className="truncate font-normal text-muted-foreground text-xs">
                 {camera.defaultName}
+              </span>
+            )}
+            {time && (
+              <span
+                data-testid="camera-time-label"
+                className="truncate font-normal text-muted-foreground text-xs"
+              >
+                {time.text}
+                {time.unconfirmed && (
+                  <span className="text-amber-700 dark:text-amber-400"> · unconfirmed</span>
+                )}
               </span>
             )}
             <span className="mt-1 flex flex-wrap gap-1">

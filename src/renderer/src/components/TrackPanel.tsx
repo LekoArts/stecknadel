@@ -11,6 +11,7 @@ interface TrackPanelProps {
   track: TrackSummary | null
   dawarich: DawarichState | null
   defaultRange: FetchRange | null
+  fetchRequest: { range: FetchRange } | null
   onTrack: (track: TrackSummary) => void
   onDawarich: (state: DawarichState) => void
 }
@@ -19,6 +20,7 @@ export function TrackPanel({
   track,
   dawarich,
   defaultRange,
+  fetchRequest,
   onTrack,
   onDawarich,
 }: TrackPanelProps): React.JSX.Element {
@@ -78,6 +80,7 @@ export function TrackPanel({
           <DawarichDialog
             state={dawarich}
             defaultRange={defaultRange}
+            openRequest={fetchRequest}
             onState={onDawarich}
             onTrack={onTrack}
           />

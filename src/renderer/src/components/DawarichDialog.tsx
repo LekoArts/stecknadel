@@ -19,6 +19,8 @@ import { useEffect, useId, useState } from 'react'
 interface DawarichDialogProps {
   state: DawarichState
   defaultRange: FetchRange | null
+  /** Opens the dialog with this range (the outside-range banner's "Fetch again"). */
+  openRequest: { range: FetchRange } | null
   onState: (state: DawarichState) => void
   onTrack: (track: TrackSummary) => void
 }
@@ -44,6 +46,7 @@ function lastWeek(): FetchRange {
 export function DawarichDialog({
   state,
   defaultRange,
+  openRequest,
   onState,
   onTrack,
 }: DawarichDialogProps): React.JSX.Element {
@@ -63,10 +66,9 @@ export function DawarichDialog({
     [],
   )
 
-  const onOpenChange = (next: boolean): void => {
+  const onOpenChange = (next: boolean, range: FetchRange = defaultRange ?? lastWeek()): void => {
     if (status.kind === 'fetching') return
     if (next) {
-      const range = defaultRange ?? lastWeek()
       setUrl(state.url ?? '')
       setKey('')
       setStart(toInput(range.start))
@@ -75,6 +77,11 @@ export function DawarichDialog({
     }
     setOpen(next)
   }
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: react to new requests only
+  useEffect(() => {
+    if (openRequest) onOpenChange(true, openRequest.range)
+  }, [openRequest])
 
   const typedKey = key.trim() || undefined
   const busy = status.kind === 'testing' || status.kind === 'fetching'
@@ -109,7 +116,7 @@ export function DawarichDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(next) => onOpenChange(next)}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           Dawarich…

@@ -1,15 +1,25 @@
-import { CameraList } from '@renderer/components/CameraList'
+import { CameraList, type CameraTimeLabel } from '@renderer/components/CameraList'
+import { CameraTimePanel, type CameraTimeStats } from '@renderer/components/CameraTimePanel'
 import { MetadataPanel } from '@renderer/components/MetadataPanel'
 import { PhotoGrid } from '@renderer/components/PhotoGrid'
 import { TrackPanel } from '@renderer/components/TrackPanel'
 import { Button } from '@renderer/components/ui/button'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
 import { clearThumbnailCache } from '@renderer/lib/thumbnails'
+import { localZone, tzLabel } from '@renderer/lib/time'
 import type { DawarichState } from '@shared/ipc'
 import type { LibraryProgress, LibrarySnapshot } from '@shared/library'
-import { defaultFetchRange } from '@shared/track/range'
+import { type CameraTimeSettings, defaultCameraSettings } from '@shared/time/cameraSettings'
+import { instantSeconds } from '@shared/time/exifDate'
+import { type PhotoUtc, photoUtc } from '@shared/time/toUtc'
+import {
+  defaultFetchRange,
+  type FetchRange,
+  isOutsideFetchedRange,
+  rangeCovering,
+} from '@shared/track/range'
 import type { TrackSummary } from '@shared/track/types'
-import { FolderOpen } from 'lucide-react'
+import { FolderOpen, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 type Load =
@@ -24,6 +34,10 @@ export default function App(): React.JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [track, setTrack] = useState<TrackSummary | null>(null)
   const [dawarich, setDawarich] = useState<DawarichState | null>(null)
+  // Session only: across trips just the camera's name is remembered (user decision 4).
+  const [timeSettings, setTimeSettings] = useState<Record<string, CameraTimeSettings>>({})
+  const [fetchRequest, setFetchRequest] = useState<{ range: FetchRange } | null>(null)
+  const defaultSettings = useMemo(() => defaultCameraSettings(localZone()), [])
 
   useEffect(() => {
     void window.stecknadel.getTrackState().then((state) => {
@@ -80,10 +94,61 @@ export default function App(): React.JSX.Element {
     () => (library ? defaultFetchRange(library.photos.map((p) => p.captureTime)) : null),
     [library],
   )
+  const settingsFor = (key: string): CameraTimeSettings => timeSettings[key] ?? defaultSettings
+
+  const utcs = useMemo(() => {
+    const map = new Map<string, PhotoUtc>()
+    for (const p of library?.photos ?? []) {
+      map.set(p.id, photoUtc(p, timeSettings[p.cameraKey] ?? defaultSettings))
+    }
+    return map
+  }, [library, timeSettings, defaultSettings])
+
+  const cameraStats = useMemo(() => {
+    const stats = new Map<string, CameraTimeStats>()
+    for (const p of library?.photos ?? []) {
+      const s = stats.get(p.cameraKey) ?? { noTime: 0, ambiguous: 0, conflict: 0, recorded: 0 }
+      const time = utcs.get(p.id)
+      if (!time?.utc) s.noTime++
+      if (time?.warnings.includes('ambiguous-local-time')) s.ambiguous++
+      if (time?.warnings.includes('offset-conflict')) s.conflict++
+      if (p.offsetTimeOriginal) s.recorded++
+      stats.set(p.cameraKey, s)
+    }
+    return stats
+  }, [library, utcs])
+
+  const timeLabels = useMemo(() => {
+    const labels = new Map<string, CameraTimeLabel>()
+    for (const camera of library?.cameras ?? []) {
+      const s = timeSettings[camera.key] ?? defaultSettings
+      const changes = s.segments.length - 1
+      labels.set(camera.key, {
+        text: `${tzLabel(s.segments[0].tz)}${changes ? ` + ${changes} change${changes === 1 ? '' : 's'}` : ''}`,
+        unconfirmed: !s.confirmed,
+      })
+    }
+    return labels
+  }, [library, timeSettings, defaultSettings])
+
+  // Photos whose UTC the fetched Dawarich range can't judge (user decision: never before/after).
+  const outside = useMemo(() => {
+    if (track?.source.kind !== 'dawarich') return []
+    const range = { start: track.source.start, end: track.source.end }
+    const out: number[] = []
+    for (const time of utcs.values()) {
+      if (!time.utc) continue
+      const t = instantSeconds(time.utc)
+      if (isOutsideFetchedRange(t, range)) out.push(t)
+    }
+    return out
+  }, [track, utcs])
+
+  const selectedCamera = library?.cameras.find((c) => c.key === cameraFilter) ?? null
   const loading = load.status === 'loading'
 
   return (
-    <div className="grid h-full grid-cols-[16rem_1fr_20rem] grid-rows-[1fr_18rem] bg-background text-sm">
+    <div className="grid h-full grid-cols-[18rem_1fr_20rem] grid-rows-[1fr_18rem] bg-background text-sm">
       <aside
         aria-label="Cameras"
         className="row-span-2 flex min-h-0 flex-col border-r bg-sidebar text-sidebar-foreground"
@@ -101,11 +166,35 @@ export default function App(): React.JSX.Element {
           <div className="min-h-0 flex-1 overflow-y-auto pb-4">
             <CameraList
               cameras={library.cameras}
+              timeLabels={timeLabels}
               total={library.photos.length}
               selectedKey={cameraFilter}
               onSelect={setCameraFilter}
               onRename={renameCamera}
             />
+            {selectedCamera && (
+              <div className="mt-3">
+                <CameraTimePanel
+                  key={selectedCamera.key}
+                  camera={selectedCamera}
+                  settings={settingsFor(selectedCamera.key)}
+                  stats={
+                    cameraStats.get(selectedCamera.key) ?? {
+                      noTime: 0,
+                      ambiguous: 0,
+                      conflict: 0,
+                      recorded: 0,
+                    }
+                  }
+                  selectedCaptureTime={
+                    selected?.cameraKey === selectedCamera.key ? selected.captureTime : null
+                  }
+                  onChange={(next) =>
+                    setTimeSettings((current) => ({ ...current, [selectedCamera.key]: next }))
+                  }
+                />
+              </div>
+            )}
           </div>
         )}
         <div className="mt-auto">
@@ -113,6 +202,7 @@ export default function App(): React.JSX.Element {
             track={track}
             dawarich={dawarich}
             defaultRange={fetchRange}
+            fetchRequest={fetchRequest}
             onTrack={setTrack}
             onDawarich={setDawarich}
           />
@@ -132,7 +222,33 @@ export default function App(): React.JSX.Element {
         <MetadataPanel photo={selected} />
       </aside>
 
-      <section aria-label="Photos" className="min-h-0 border-t" aria-busy={loading}>
+      <section aria-label="Photos" className="flex min-h-0 flex-col border-t" aria-busy={loading}>
+        {outside.length > 0 && track?.source.kind === 'dawarich' && load.status !== 'loading' && (
+          <div
+            role="status"
+            data-testid="outside-range"
+            className="flex shrink-0 items-center gap-2 border-b bg-amber-50 px-4 py-1.5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            <TriangleAlert className="size-4 shrink-0" />
+            <span className="flex-1">
+              The track doesn’t cover {outside.length.toLocaleString()}{' '}
+              {outside.length === 1 ? 'photo' : 'photos'}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7"
+              onClick={() => {
+                const source = track.source as { start: string; end: string }
+                setFetchRequest({
+                  range: rangeCovering(outside, { start: source.start, end: source.end }),
+                })
+              }}
+            >
+              Fetch again…
+            </Button>
+          </div>
+        )}
         {load.status === 'loading' && load.progress ? (
           // While the folder dialog is open there is no progress yet: keep showing the current library.
           <LoadingState progress={load.progress} />
@@ -143,13 +259,16 @@ export default function App(): React.JSX.Element {
             No JPEG, HEIC or RAW photos in {library.folderName}.
           </p>
         ) : (
-          <PhotoGrid
-            photos={photos}
-            cameraNames={cameraNames}
-            showCamera={cameraFilter === null && library.cameras.length > 1}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
+          <div className="min-h-0 flex-1">
+            <PhotoGrid
+              photos={photos}
+              cameraNames={cameraNames}
+              utcs={utcs}
+              showCamera={cameraFilter === null && library.cameras.length > 1}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          </div>
         )}
       </section>
     </div>

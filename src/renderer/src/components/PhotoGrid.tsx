@@ -1,8 +1,11 @@
 import { formatCaptureTime } from '@renderer/lib/format'
 import { useThumbnail } from '@renderer/lib/thumbnails'
+import { formatInstant } from '@renderer/lib/time'
 import { cn } from '@renderer/lib/utils'
 import type { PhotoSummary } from '@shared/library'
+import type { PhotoUtc } from '@shared/time/toUtc'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 const TILE_WIDTH = 184
@@ -12,6 +15,7 @@ const GAP = 8
 interface PhotoGridProps {
   photos: PhotoSummary[]
   cameraNames: Map<string, string>
+  utcs: Map<string, PhotoUtc>
   /** Hide the camera line when the grid is already filtered to one camera. */
   showCamera: boolean
   selectedId: string | null
@@ -21,6 +25,7 @@ interface PhotoGridProps {
 export function PhotoGrid({
   photos,
   cameraNames,
+  utcs,
   showCamera,
   selectedId,
   onSelect,
@@ -63,6 +68,7 @@ export function PhotoGrid({
                 key={photo.id}
                 photo={photo}
                 camera={showCamera ? cameraNames.get(photo.cameraKey) : undefined}
+                utc={utcs.get(photo.id)}
                 selected={photo.id === selectedId}
                 onSelect={onSelect}
               />
@@ -77,11 +83,13 @@ export function PhotoGrid({
 function PhotoTile({
   photo,
   camera,
+  utc,
   selected,
   onSelect,
 }: {
   photo: PhotoSummary
   camera: string | undefined
+  utc: PhotoUtc | undefined
   selected: boolean
   onSelect: (id: string) => void
 }): React.JSX.Element {
@@ -118,7 +126,7 @@ function PhotoTile({
             'No capture time'
           )}
         </span>
-        <span className="truncate text-muted-foreground tabular-nums">UTC —</span>
+        <UtcLine time={utc} />
       </div>
     </button>
   )
@@ -148,5 +156,30 @@ function Thumbnail({ photo }: { photo: PhotoSummary }): React.JSX.Element {
         </span>
       )}
     </div>
+  )
+}
+
+const WARNING_TEXT = {
+  'ambiguous-local-time': 'In a skipped or repeated DST hour',
+  'offset-conflict': 'The recorded offset differs from the camera setting',
+} as const
+
+function UtcLine({ time }: { time: PhotoUtc | undefined }): React.JSX.Element {
+  if (!time?.utc) return <span className="truncate text-muted-foreground">UTC —</span>
+  const warning = time.warnings.map((w) => WARNING_TEXT[w]).join('. ')
+  return (
+    <span
+      data-testid="photo-utc"
+      className="flex items-center gap-1 truncate text-muted-foreground tabular-nums"
+      title={warning || undefined}
+    >
+      <span className="truncate">{formatInstant(time.utc)}</span>
+      {warning && (
+        <TriangleAlert
+          aria-label={warning}
+          className="size-3 shrink-0 text-amber-700 dark:text-amber-400"
+        />
+      )}
+    </span>
   )
 }

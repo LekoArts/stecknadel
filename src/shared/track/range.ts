@@ -43,6 +43,24 @@ export function defaultFetchRange(
 }
 
 /**
+ * A fetch range that keeps `current` and also covers every computed UTC ± GeoMaxExtSecs, widened
+ * to whole hours.
+ */
+export function rangeCovering(
+  utcs: number[],
+  current: FetchRange,
+  geoMaxExtSecs = DEFAULT_GEO_MAX_EXT_SECS,
+): FetchRange {
+  let start = Date.parse(current.start) / 1000
+  let end = Date.parse(current.end) / 1000
+  for (const t of utcs) {
+    start = Math.min(start, Math.floor((t - geoMaxExtSecs) / 3600) * 3600)
+    end = Math.max(end, Math.ceil((t + geoMaxExtSecs) / 3600) * 3600)
+  }
+  return { start: iso(start), end: iso(end) }
+}
+
+/**
  * Whether a photo's computed UTC can't be judged against the fetched track: the track could have
  * fixes within GeoMaxExtSecs of it that weren't fetched. Such photos are `outside-fetched-range`,
  * never `before-track`/`after-track`.
