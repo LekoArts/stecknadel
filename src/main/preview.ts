@@ -159,7 +159,7 @@ const toPosition = (raw: RawPosition): Position => ({
  * generation was superseded while it ran returns null and its result is never shown.
  */
 export class PreviewEngine {
-  private latest = 0
+  private sequence = 0
   private queue: Promise<unknown> = Promise.resolve()
   private prepared: PreparedTrack | null = null
   private cache = new Map<string, CameraCache>()
@@ -173,24 +173,29 @@ export class PreviewEngine {
   }
 
   run(input: PreviewInput, ctx: PreviewContext): Promise<PreviewSnapshot | null> {
-    if (input.generation <= this.latest) return Promise.resolve(null)
-    this.latest = input.generation
+    // The sequence is ours, not the renderer's: a new window starts its counter over and must
+    // still be served, while a run the next request superseded is dropped.
+    const sequence = ++this.sequence
     // One run at a time: runs share the prepared GPX and the cache.
     const result = this.queue.then(async () => {
-      if (input.generation !== this.latest) return null
-      return this.runNow(input, ctx)
+      if (sequence !== this.sequence) return null
+      return this.runNow(input, ctx, sequence)
     })
     this.queue = result.catch(() => null)
     return result
   }
 
-  private async runNow(input: PreviewInput, ctx: PreviewContext): Promise<PreviewSnapshot | null> {
+  private async runNow(
+    input: PreviewInput,
+    ctx: PreviewContext,
+    sequence: number,
+  ): Promise<PreviewSnapshot | null> {
     const started = performance.now()
     const { limits, bridge, overwriteGps, rawTarget } = ctx.options
     const skipped = (photo: PhotoSummary): boolean =>
       (photo.gps !== null && !overwriteGps) || (photo.sidecarCollision && rawTarget === 'sidecar')
     const prepared = await this.prepare(ctx.track, limits, bridge)
-    if (input.generation !== this.latest) return null
+    if (sequence !== this.sequence) return null
 
     const utcs = new Map<string, number | null>()
     const geotimes = new Map<string, string>()
@@ -225,7 +230,7 @@ export class PreviewEngine {
     }
     const recomputed = [...keys].filter(([c, k]) => this.cache.get(c)?.key !== k).map(([c]) => c)
     const positions = await geotagStubs(this.et, rows, prepared.gpx, limits)
-    if (input.generation !== this.latest) return null
+    if (sequence !== this.sequence) return null
 
     for (const camera of recomputed) {
       const map = new Map<string, RawPosition | null>()

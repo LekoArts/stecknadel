@@ -241,7 +241,7 @@ describe('PreviewEngine', () => {
     await engine.dispose()
   })
 
-  it('discards superseded generations', async () => {
+  it('drops the runs a newer request superseded', async () => {
     const engine = new PreviewEngine(et)
     const cameras = { cam: zone('UTC'), other: zone('UTC') }
     const older = engine.run({ generation: 5, cameras, manual: {} }, ctx)
@@ -249,12 +249,22 @@ describe('PreviewEngine', () => {
       { generation: 6, cameras: { ...cameras, cam: zone('Asia/Tokyo') }, manual: {} },
       ctx,
     )
-    const stale = engine.run({ generation: 4, cameras, manual: {} }, ctx)
     expect(await older).toBeNull()
-    expect(await stale).toBeNull()
     const snap = await newer
     expect(snap?.generation).toBe(6)
     expect(engine.snapshot?.generation).toBe(6)
+    await engine.dispose()
+  })
+
+  // The engine outlives the window: closing and reopening it restarts the renderer's counter.
+  it('serves a renderer whose generation counter started over', async () => {
+    const engine = new PreviewEngine(et)
+    const cameras = { cam: zone('UTC'), other: zone('UTC') }
+    for (let generation = 1; generation <= 3; generation++) {
+      expect(await engine.run({ generation, cameras, manual: {} }, ctx)).not.toBeNull()
+    }
+    const reopened = await engine.run({ generation: 1, cameras, manual: {} }, ctx)
+    expect(reopened?.generation).toBe(1)
     await engine.dispose()
   })
 })
