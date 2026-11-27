@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ExifTool } from 'exiftool-vendored'
@@ -113,5 +113,48 @@ describe('ThumbnailCache', () => {
 describe('rotationFor', () => {
   it('maps EXIF orientation to clockwise degrees', () => {
     expect([1, 3, 6, 8, 0].map(rotationFor)).toEqual([0, 180, 90, 270, 0])
+  })
+})
+
+describe('ThumbnailCache bookkeeping', () => {
+  it('forgets a settled job, so a cleared cache is rebuilt', async () => {
+    const own = await mkdtemp(join(tmpdir(), 'steck-thumbs-'))
+    const file = join(fixtures, 'cache/Fujifilm-X-T4.RAF')
+    let extractions = 0
+    const counted: ImageOps = {
+      ...ops,
+      resizeJpeg: (jpeg) => {
+        extractions += 1
+        return jpeg
+      },
+    }
+    const cache = new ThumbnailCache(own, et, counted)
+    await cache.get(file, 1)
+    expect(extractions).toBe(1)
+
+    // Wiping the cache on disk must be enough: a retained job would answer from memory.
+    await rm(own, { recursive: true, force: true })
+    await mkdir(own)
+    await cache.get(file, 1)
+    expect(extractions).toBe(2)
+    await rm(own, { recursive: true, force: true })
+  })
+
+  it('extracts once for requests that overlap', async () => {
+    const own = await mkdtemp(join(tmpdir(), 'steck-thumbs-'))
+    let extractions = 0
+    const counted: ImageOps = {
+      ...ops,
+      resizeJpeg: (jpeg) => {
+        extractions += 1
+        return jpeg
+      },
+    }
+    const cache = new ThumbnailCache(own, et, counted)
+    const file = join(fixtures, 'cache/Fujifilm-X-T4.RAF')
+    const [a, b] = await Promise.all([cache.get(file, 1), cache.get(file, 1)])
+    expect(a).toEqual(b)
+    expect(extractions).toBe(1)
+    await rm(own, { recursive: true, force: true })
   })
 })

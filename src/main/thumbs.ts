@@ -99,9 +99,15 @@ export class ThumbnailCache {
     const id = createHash('sha1').update(`${file}\0${info.mtimeMs}\0${info.size}`).digest('hex')
     let job = this.pending.get(id)
     if (!job) {
-      job = this.create(id, file, orientation)
-      this.pending.set(id, job)
-      job.catch(() => this.pending.delete(id))
+      const created = this.create(id, file, orientation)
+      job = created
+      this.pending.set(id, created)
+      // Only in-flight jobs are kept: the disk cache answers the next call, and holding every
+      // result would keep the whole library in memory for the life of the process.
+      const settle = (): void => {
+        if (this.pending.get(id) === created) this.pending.delete(id)
+      }
+      created.then(settle, settle)
     }
     return job
   }
