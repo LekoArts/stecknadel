@@ -41,7 +41,7 @@ export async function openFolder(
       filePaths: [chosen],
     })) as unknown as typeof dialog.showOpenDialog
   }, folder)
-  await page.getByRole('button', { name: /^Open/ }).click()
+  await page.getByRole('button', { name: 'Open folder', exact: true }).click()
 }
 
 /** A temp copy of the CC0 fixture RAWs, the ExifTool samples and the generated JPEG. */
@@ -55,14 +55,14 @@ export async function copyFixtures(): Promise<string> {
   return dir
 }
 
-/** Picks a zone (or "Fixed UTC offset…") in the camera-time zone picker labelled `label`. */
+/** Picks a zone (or "Fixed UTC offset") in the camera-time zone picker labelled `label`. */
 export async function pickZone(scope: Locator, label: string, zone: string): Promise<void> {
   await scope.getByRole('combobox', { name: label }).click()
   const page = scope.page()
   const search = page.getByPlaceholder('City, zone or offset')
   if (zone === 'fixed') {
     await search.fill('fixed')
-    await page.getByRole('option', { name: 'Fixed UTC offset…' }).click()
+    await page.getByRole('option', { name: 'Fixed UTC offset' }).click()
   } else {
     await search.fill(zone)
     await page

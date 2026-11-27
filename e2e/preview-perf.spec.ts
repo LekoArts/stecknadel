@@ -102,7 +102,7 @@ test('preview: 5,000 stubs against a 2,708-point track; full run and one-camera 
         filePaths: [chosen],
       })) as unknown as typeof dialog.showOpenDialog
     }, gpx)
-    await page.getByRole('button', { name: 'Load GPX…' }).click()
+    await page.getByRole('button', { name: 'Open GPX file' }).click()
     await expect(page.getByTestId('track-summary')).toContainText('2,708 points')
 
     await expect

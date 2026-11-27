@@ -5,6 +5,7 @@ import { ipcErrorMessage } from '@renderer/lib/ipc-error'
 import type { DawarichState } from '@shared/ipc'
 import type { FetchRange } from '@shared/track/range'
 import type { TrackSummary } from '@shared/track/types'
+import { FileUp } from 'lucide-react'
 import { useState } from 'react'
 
 interface TrackPanelProps {
@@ -72,9 +73,10 @@ export function TrackPanel({
           {error}
         </p>
       )}
-      <div className="grid grid-cols-2 gap-2 *:min-w-0">
+      <div className="grid gap-2">
         <Button size="sm" variant="outline" onClick={() => void loadGpx()} disabled={loading}>
-          Load GPX…
+          <FileUp />
+          Open GPX file
         </Button>
         {dawarich && (
           <DawarichDialog

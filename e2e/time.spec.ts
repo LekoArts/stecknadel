@@ -86,9 +86,9 @@ test('per-camera time: zone, time change, drift, recorded offsets and the UTC co
     await expect(utcOf(page, 'day2.jpg')).toHaveText('2026-06-02 08:00:00Z')
 
     // A time change on day 2 to a fixed +01:00 moves only day-2 photos.
-    await panel.getByRole('button', { name: 'Clock changed…' }).click()
+    await panel.getByRole('button', { name: 'Add zone change' }).click()
     await panel
-      .getByLabel('Camera time of the first photo after the change')
+      .getByLabel('Camera time of the first photo in the new zone')
       .fill('2026-06-02 00:00')
     await panel.getByRole('button', { name: 'Add', exact: true }).click()
     await expect(panel.getByTestId('segment')).toHaveCount(2)
@@ -105,7 +105,7 @@ test('per-camera time: zone, time change, drift, recorded offsets and the UTC co
       .first()
       .getByRole('button', { name: 'Clock fast or slow' })
       .click()
-    const drift = panel.getByTestId('segment').first().getByLabel('Clock ahead by')
+    const drift = panel.getByTestId('segment').first().getByLabel('Seconds off')
     await drift.fill('73')
     await drift.press('Enter')
     await expect(utcOf(page, 'day1.jpg')).toHaveText('2026-06-01 07:28:47Z')
@@ -148,7 +148,7 @@ test('photos outside the fetched Dawarich range get a banner that refetches a wi
       'Europe/Zurich',
     )
 
-    await page.getByRole('button', { name: 'Dawarich…' }).click()
+    await page.getByRole('button', { name: 'Fetch from Dawarich' }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('Server address').fill(dawarich.url)
     await dialog.getByLabel('API key').fill('e2e-key')
@@ -160,7 +160,7 @@ test('photos outside the fetched Dawarich range get a banner that refetches a wi
     // day2.jpg (08:00Z on June 2) is outside; the other two are inside.
     const banner = page.getByTestId('outside-range')
     await expect(banner).toContainText('The track doesn’t cover 1 photo')
-    await banner.getByRole('button', { name: 'Fetch again…' }).click()
+    await banner.getByRole('button', { name: 'Fetch wider range' }).click()
     await expect(dialog).toBeVisible()
     await expect(dialog.getByLabel('From (UTC)')).toHaveValue('2026-06-01 00:00')
     await expect(dialog.getByLabel('To (UTC)')).toHaveValue('2026-06-02 09:00')

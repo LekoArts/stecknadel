@@ -12,6 +12,7 @@ import {
   offsetLabel,
   parseWallInput,
 } from '@renderer/lib/time'
+import { cn } from '@renderer/lib/utils'
 import type { CameraSummary } from '@shared/library'
 import {
   type CameraTimeSettings,
@@ -96,7 +97,11 @@ export function CameraTimePanel({
       </div>
 
       {camera.recordsOffsets && (
-        <label htmlFor={`${ids}-recorded`} className="flex items-start gap-2">
+        <label
+          htmlFor={`${ids}-recorded`}
+          className="flex items-start gap-2"
+          data-testid={recordedOnly ? 'recorded-only' : 'recorded-offsets'}
+        >
           <Checkbox
             id={`${ids}-recorded`}
             className="mt-0.5"
@@ -107,14 +112,14 @@ export function CameraTimePanel({
           />
           <span>
             Use the time zone saved in each photo
-            <span
-              data-testid={recordedOnly ? 'recorded-only' : 'recorded-offsets'}
-              className="block text-muted-foreground text-xs tabular-nums"
-            >
-              {stats.recorded === camera.count
-                ? `Every photo has one (${stats.offsets.map(offsetLabel).join(', ')})${recordedOnly ? ', so there’s nothing else to set.' : ''}`
-                : `${stats.recorded.toLocaleString()} of ${camera.count.toLocaleString()} photos have one`}
-            </span>
+            {/* When it's used for every photo, the camera row already names the offsets. */}
+            {!recordedOnly && (
+              <span className="block text-muted-foreground text-xs tabular-nums">
+                {stats.recorded === camera.count
+                  ? `Every photo has one: ${stats.offsets.map(offsetLabel).join(', ')}`
+                  : `${stats.recorded.toLocaleString()} of ${camera.count.toLocaleString()} photos have one`}
+              </span>
+            )}
           </span>
         </label>
       )}
@@ -128,8 +133,8 @@ export function CameraTimePanel({
           <div className="flex flex-col gap-1">
             <h3 className="text-muted-foreground text-xs">
               {camera.recordsOffsets
-                ? 'For photos without one, the clock showed time in'
-                : 'The camera’s clock showed time in'}
+                ? 'Without a saved zone, the clock was set to'
+                : 'Clock set to'}
             </h3>
             <ol className="flex flex-col gap-3" aria-label="Time zones">
               {settings.segments.map((segment, index) => (
@@ -212,12 +217,9 @@ function OriginNote({
         data-testid="unconfirmed"
         className="-mt-1 flex items-start gap-2 rounded-md bg-amber-50 px-2 py-1.5 text-amber-900 text-xs dark:bg-amber-950/40 dark:text-amber-200"
       >
-        <p className="flex-1">
-          A guess: this computer’s time zone. Load a track to detect it, or pick the zone the
-          camera’s clock was set to.
-        </p>
-        <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={onConfirm}>
-          It’s right
+        <p className="flex-1">Guessed from this computer. Loading a track detects it.</p>
+        <Button size="xs" variant="outline" onClick={onConfirm}>
+          Keep
         </Button>
       </div>
     )
@@ -236,15 +238,12 @@ function CopyFrom({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs">
-          <Copy className="size-3.5" />
-          Copy from…
+        <Button size="xs" variant="ghost">
+          <Copy />
+          Copy from camera
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-1" aria-label="Copy time zones from">
-        <p className="px-2 py-1.5 text-muted-foreground text-xs">
-          Use another camera’s time zones and changes
-        </p>
         <ul>
           {sources.map((s) => (
             <li key={s.key}>
@@ -294,7 +293,7 @@ function SegmentEditor({
             type="button"
             aria-label={`Remove the change ${label.toLowerCase()}`}
             onClick={onRemove}
-            className="grid size-5 place-items-center rounded text-muted-foreground outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <X className="size-3.5" />
           </button>
@@ -374,7 +373,7 @@ function OffsetInput({
         />
       </div>
       <p id={`${id}-hint`} className="text-muted-foreground text-xs">
-        Hours the clock was ahead of (+) or behind (−) UTC. No daylight saving changes.
+        The same all year, without daylight saving.
       </p>
     </div>
   )
@@ -390,12 +389,18 @@ function DriftEditor({
   onChange: (value: number) => void
 }): React.JSX.Element {
   const [open, setOpen] = useState(value !== 0)
-  const [draft, setDraft] = useState(String(value))
-  const parsed = draft.trim() === '' ? 0 : Number(draft.replace('−', '-'))
-  const valid = Number.isInteger(parsed) && Math.abs(parsed) <= 86_400
+  const [draft, setDraft] = useState(value === 0 ? '' : String(Math.abs(value)))
+  // Direction is a choice, not a sign the user has to remember.
+  const [slow, setSlow] = useState(value < 0)
+  const parsed = draft.trim() === '' ? 0 : Number(draft)
+  const valid = Number.isInteger(parsed) && parsed >= 0 && parsed <= 86_400
+  const apply = (seconds: number, isSlow: boolean): void => {
+    const next = isSlow ? -seconds : seconds
+    if (next !== value) onChange(next)
+  }
   const commit = (): void => {
-    if (!valid) setDraft(String(value))
-    else if (parsed !== value) onChange(parsed)
+    if (!valid) setDraft(value === 0 ? '' : String(Math.abs(value)))
+    else apply(parsed, slow)
   }
   return (
     <div className="text-xs">
@@ -406,30 +411,55 @@ function DriftEditor({
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 rounded text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
-        <ChevronRight className={`size-3.5 transition-transform ${open ? 'rotate-90' : ''}`} />
-        Clock fast or slow{value !== 0 && ` · ${formatDrift(value)}`}
+        <ChevronRight
+          className={cn(
+            'size-3.5 transition-transform duration-150 ease-out motion-reduce:transition-none',
+            open && 'rotate-90',
+          )}
+        />
+        {value === 0 ? 'Clock fast or slow' : `Clock ${formatDrift(value)}`}
       </button>
       {open && (
-        <div id={id} className="mt-1.5 flex flex-col gap-1 pl-4.5">
-          <div className="flex items-center gap-2">
-            <label htmlFor={`${id}-input`}>Clock ahead by</label>
-            <Input
-              id={`${id}-input`}
-              inputMode="numeric"
-              className="h-7 w-20 text-right tabular-nums"
-              value={draft}
-              aria-invalid={!valid}
-              onChange={(e) => setDraft(e.target.value)}
-              onBlur={commit}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commit()
-              }}
-            />
-            <span className="text-muted-foreground">seconds</span>
-          </div>
-          <p className="text-muted-foreground">
-            Negative if it was behind. Find offset on the map measures it from one photo.
-          </p>
+        <div id={id} className="mt-1.5 flex items-center gap-2 pl-4.5">
+          <Input
+            id={`${id}-input`}
+            aria-label="Seconds off"
+            inputMode="numeric"
+            placeholder="0"
+            className="h-7 w-16 text-right tabular-nums"
+            value={draft}
+            aria-invalid={!valid}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commit()
+            }}
+          />
+          <span className="text-muted-foreground">s</span>
+          <fieldset className="flex rounded-md border p-0.5">
+            <legend className="sr-only">Direction</legend>
+            {(['fast', 'slow'] as const).map((d) => {
+              const pressed = (d === 'slow') === slow
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  aria-pressed={pressed}
+                  onClick={() => {
+                    const isSlow = d === 'slow'
+                    setSlow(isSlow)
+                    if (valid) apply(parsed, isSlow)
+                  }}
+                  className={cn(
+                    'rounded-sm px-2 py-0.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                    pressed ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground',
+                  )}
+                >
+                  {d === 'fast' ? 'Fast' : 'Slow'}
+                </button>
+              )
+            })}
+          </fieldset>
         </div>
       )}
     </div>
@@ -465,7 +495,7 @@ function AddTimeChange({
         }}
       >
         <Plus />
-        Clock changed…
+        Add zone change
       </Button>
     )
   }
@@ -481,7 +511,7 @@ function AddTimeChange({
       }}
     >
       <label htmlFor={id} className="text-xs">
-        Camera time of the first photo after the change
+        Camera time of the first photo in the new zone
       </label>
       <Input
         id={id}
@@ -490,19 +520,17 @@ function AddTimeChange({
         value={value}
         autoFocus
         aria-invalid={value !== '' && (at === null || taken)}
-        aria-describedby={`${id}-hint`}
+        aria-describedby={taken ? `${id}-hint` : undefined}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') setOpen(false)
         }}
       />
-      <p id={`${id}-hint`} className="text-muted-foreground text-xs">
-        {taken
-          ? 'There’s already a change at this time.'
-          : defaultAt
-            ? 'Filled in from the selected photo.'
-            : 'Tip: select that photo first to fill this in.'}
-      </p>
+      {taken && (
+        <p id={`${id}-hint`} className="text-destructive text-xs">
+          There’s already a change at this time
+        </p>
+      )}
       <div className="flex gap-2">
         <Button size="sm" type="submit" disabled={!at || taken}>
           Add

@@ -89,8 +89,13 @@
   #root {
     height: 100%;
   }
+  /* On html, so overscroll and the area behind a resizing window match the app. */
+  html {
+    @apply bg-background;
+    color-scheme: light dark;
+  }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   /* Slim scrollbars that match the theme on both platforms, instead of the OS gutters. */

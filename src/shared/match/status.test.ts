@@ -4,7 +4,7 @@ import {
   type ClassifyPhoto,
   classify,
   SIDECAR_COLLISION,
-  statusReason,
+  statusDetail,
 } from './status'
 
 const T0 = Date.UTC(2026, 5, 1, 6) / 1000
@@ -92,13 +92,13 @@ describe('classify', () => {
   })
 
   it('reason text', () => {
-    expect(statusReason({ kind: 'in-gap', gapMinutes: 697, distanceMeters: 8_712_345 })).toBe(
-      'In a 11.6 h gap between points 8712 km apart',
+    expect(statusDetail({ kind: 'in-gap', gapMinutes: 697, distanceMeters: 8_712_345 })).toBe(
+      'No points for 11.6 h, 8712 km apart',
     )
-    expect(statusReason({ kind: 'before-track', seconds: 1200 })).toBe(
+    expect(statusDetail({ kind: 'before-track', seconds: 1200 })).toBe(
       '20 min before the first track point',
     )
-    expect(statusReason({ kind: 'after-track', seconds: 3 * 86_400 })).toBe(
+    expect(statusDetail({ kind: 'after-track', seconds: 3 * 86_400 })).toBe(
       '3 days after the last track point',
     )
   })

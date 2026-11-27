@@ -147,7 +147,7 @@ async function loadGpx(app: ElectronApplication, page: Page): Promise<void> {
       filePaths: [chosen],
     })) as unknown as typeof dialog.showOpenDialog
   }, gpx)
-  await page.getByRole('button', { name: 'Load GPX…' }).click()
+  await page.getByRole('button', { name: 'Open GPX file' }).click()
   await expect(page.getByTestId('track-summary')).toContainText('663 points')
 }
 
@@ -279,9 +279,9 @@ test('camera zones come from the track, and one camera’s changes copy onto ano
     await page.keyboard.press('Escape')
 
     // Camera A: a change to +01:00 on day 2, then Camera C copies it.
-    await panel.getByRole('button', { name: 'Clock changed…' }).click()
+    await panel.getByRole('button', { name: 'Add zone change' }).click()
     await panel
-      .getByLabel('Camera time of the first photo after the change')
+      .getByLabel('Camera time of the first photo in the new zone')
       .fill('2026-06-02 00:00')
     await panel.getByRole('button', { name: 'Add', exact: true }).click()
     await pickZone(panel, 'Time zone from 2026-06-02 00:00:00', 'fixed')
@@ -291,7 +291,7 @@ test('camera zones come from the track, and one camera’s changes copy onto ano
     await expect(label('Camera A')).toHaveText('Europe/Zurich + 1 change')
 
     await selectCamera(page, 'Camera C')
-    await panel.getByRole('button', { name: 'Copy from…' }).click()
+    await panel.getByRole('button', { name: 'Copy from camera' }).click()
     await page
       .getByRole('dialog', { name: 'Copy time zones from' })
       .getByRole('button', { name: /^Camera A/ })

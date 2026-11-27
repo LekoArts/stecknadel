@@ -63,12 +63,12 @@ export function MetadataPanel({ photo }: { photo: PhotoSummary | null }): React.
         />
       </div>
       <div data-testid="metadata" className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 text-xs">
-        {state.status === 'loading' && <p className="text-muted-foreground">Reading tags…</p>}
+        {state.status === 'loading' && <p className="pt-3 text-muted-foreground">Reading tags…</p>}
         {state.status === 'error' && (
-          <p className="text-destructive">Couldn’t read this file: {state.message}</p>
+          <p className="pt-3 text-destructive">Couldn’t read this file: {state.message}</p>
         )}
         {state.status === 'ready' && filtered.length === 0 && (
-          <p className="text-muted-foreground">No tags match “{filter.trim()}”.</p>
+          <p className="pt-3 text-muted-foreground">No tags match “{filter.trim()}”</p>
         )}
         {filtered.map(([group, rows]) => (
           <section key={group} className="mb-3">

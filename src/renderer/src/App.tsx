@@ -224,6 +224,7 @@ export default function App(): React.JSX.Element {
         labels.set(camera.key, {
           text: `Saved in photos: ${stats.offsets.map(offsetLabel).join(', ')}`,
           unconfirmed: false,
+          fromPhotos: true,
         })
         continue
       }
@@ -231,6 +232,7 @@ export default function App(): React.JSX.Element {
       labels.set(camera.key, {
         text: `${tzLabel(s.segments[0].tz)}${changes ? ` + ${changes} change${changes === 1 ? '' : 's'}` : ''}`,
         unconfirmed: !s.confirmed,
+        fromPhotos: false,
       })
     }
     return labels
@@ -285,10 +287,24 @@ export default function App(): React.JSX.Element {
           <h2 className="flex-1 truncate font-medium" title={library?.folderName}>
             {library?.folderName ?? 'Cameras'}
           </h2>
-          <Button size="sm" variant="outline" onClick={() => void openFolder()} disabled={loading}>
-            <FolderOpen />
-            {library ? 'Open…' : 'Open folder'}
-          </Button>
+          {library ? (
+            // The folder name says what's open; the icon is enough to open another.
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Open folder"
+              title="Open folder"
+              onClick={() => void openFolder()}
+              disabled={loading}
+            >
+              <FolderOpen />
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => void openFolder()} disabled={loading}>
+              <FolderOpen />
+              Open folder
+            </Button>
+          )}
           {settings && (
             <SettingsDialog
               settings={settings}
@@ -417,7 +433,7 @@ export default function App(): React.JSX.Element {
                 })
               }}
             >
-              Fetch again…
+              Fetch wider range
             </Button>
           </div>
         )}
@@ -459,8 +475,8 @@ function LoadingState({ progress }: { progress: LibraryProgress }): React.JSX.El
       </p>
       <div className="h-1 w-64 overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full bg-primary transition-[width] duration-150 motion-reduce:transition-none"
-          style={{ width: reading ? `${(progress.done / progress.total) * 100}%` : '0%' }}
+          className="h-full origin-left bg-primary transition-transform duration-150 ease-out motion-reduce:transition-none"
+          style={{ transform: `scaleX(${reading ? progress.done / progress.total : 0})` }}
         />
       </div>
     </div>

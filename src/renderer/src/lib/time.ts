@@ -35,7 +35,7 @@ export const exifToInput = (exif: string): string =>
 
 /** Signed seconds as `+73 s` / `−73 s`. */
 export const formatDrift = (seconds: number): string =>
-  `${seconds > 0 ? '+' : seconds < 0 ? '−' : ''}${Math.abs(seconds)} s`
+  `${Math.abs(seconds)} s ${seconds > 0 ? 'fast' : 'slow'}`
 
 /** Typed `2026-11-07 13:28[:21]` (a `T` works too) → a wall time; null when it isn't one. */
 export function parseWallInput(text: string): Temporal.PlainDateTime | null {

@@ -118,7 +118,7 @@ export function ZonePicker({
                 <Check
                   className={cn('size-3.5', value === FIXED_OFFSET ? 'opacity-100' : 'opacity-0')}
                 />
-                Fixed UTC offset…
+                Fixed UTC offset
               </CommandItem>
             </CommandGroup>
             <CommandGroup heading="All zones">{rest.map(item)}</CommandGroup>

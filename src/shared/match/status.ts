@@ -135,27 +135,22 @@ export const STATUS_LABELS: Record<MatchKind, string> = {
   excluded: 'Excluded',
 }
 
-/** One line on why a photo has this status. */
-export function statusReason(status: MatchStatus): string {
+/** What the label alone doesn't say about this status, or null when the label says it all. */
+export function statusDetail(status: MatchStatus): string | null {
   switch (status.kind) {
     case 'matched':
-      return 'Position from the track'
     case 'matched-stay':
-      return 'Inside a stationary gap; placed where you stayed'
     case 'manual':
-      return 'Position chosen by you'
     case 'has-gps':
-      return 'Kept as is'
+    case 'no-capture-time':
+    case 'outside-fetched-range':
+      return null
     case 'before-track':
       return `${duration(status.seconds)} before the first track point`
     case 'after-track':
       return `${duration(status.seconds)} after the last track point`
     case 'in-gap':
-      return `In a ${duration(status.gapMinutes * 60)} gap between points ${distance(status.distanceMeters)} apart`
-    case 'outside-fetched-range':
-      return 'The fetched track may not cover this time; fetch a wider range'
-    case 'no-capture-time':
-      return 'The photo has no capture date'
+      return `No points for ${duration(status.gapMinutes * 60)}, ${distance(status.distanceMeters)} apart`
     case 'excluded':
       return status.reason
   }

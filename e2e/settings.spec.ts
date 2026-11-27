@@ -67,7 +67,7 @@ test('a local PMTiles file renders the map with the network blocked', async () =
     await expect(dialog.getByTestId('pmtiles-name')).toHaveText('No file chosen')
     await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled()
     await chooseFile(app, pmtiles)
-    await dialog.getByRole('button', { name: 'Choose…' }).click()
+    await dialog.getByRole('button', { name: 'Choose file' }).click()
     await expect(dialog.getByTestId('pmtiles-name')).toHaveText('tiny.pmtiles')
     const blockedBefore = await app.evaluate(
       () => (globalThis as unknown as { __blocked: string[] }).__blocked.length,
@@ -128,7 +128,7 @@ test('changing GeoMaxIntSecs changes a photo’s status in the preview', async (
     await expect(page.getByTestId('photo-tile')).toHaveCount(1)
     const id = (await page.getByTestId('photo-tile').getAttribute('data-photo-id')) ?? ''
     await chooseFile(app, gpx)
-    await page.getByRole('button', { name: 'Load GPX…' }).click()
+    await page.getByRole('button', { name: 'Open GPX file' }).click()
     await expect(page.getByTestId('track-summary')).toContainText('663 points')
 
     const status = async (): Promise<string | undefined> => {

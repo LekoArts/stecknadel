@@ -15,6 +15,7 @@ import { parseWallInput } from '@renderer/lib/time'
 import type { DawarichState } from '@shared/ipc'
 import type { FetchRange } from '@shared/track/range'
 import type { TrackSummary } from '@shared/track/types'
+import { CloudDownload } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { Temporal } from 'temporal-polyfill'
 
@@ -125,7 +126,8 @@ export function DawarichDialog({
     <Dialog open={open} onOpenChange={(next) => onOpenChange(next)}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
-          Dawarich…
+          <CloudDownload />
+          Fetch from Dawarich
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md" showCloseButton={!busy}>

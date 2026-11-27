@@ -6,6 +6,8 @@ import { useState } from 'react'
 export interface CameraTimeLabel {
   text: string
   unconfirmed: boolean
+  /** The text already says the photos carry their offsets. */
+  fromPhotos: boolean
 }
 
 interface CameraListProps {
@@ -152,7 +154,7 @@ function CameraRow({
               {camera.formats.map((format) => (
                 <Badge key={format}>{format}</Badge>
               ))}
-              {camera.recordsOffsets && <Badge>Records offsets</Badge>}
+              {camera.recordsOffsets && !time?.fromPhotos && <Badge>Records offsets</Badge>}
             </span>
           </span>
           <span className="self-start text-muted-foreground tabular-nums">{camera.count}</span>

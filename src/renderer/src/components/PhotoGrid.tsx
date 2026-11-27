@@ -4,7 +4,7 @@ import { useThumbnail } from '@renderer/lib/thumbnails'
 import { formatInstant } from '@renderer/lib/time'
 import { cn } from '@renderer/lib/utils'
 import type { PhotoSummary } from '@shared/library'
-import { type MatchStatus, STATUS_LABELS, statusReason } from '@shared/match/status'
+import { type MatchStatus, STATUS_LABELS, statusDetail } from '@shared/match/status'
 import type { PhotoUtc } from '@shared/time/toUtc'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { TriangleAlert } from 'lucide-react'
@@ -115,7 +115,7 @@ function PhotoTile({
       aria-pressed={selected}
       onClick={() => onSelect(photo.id)}
       className={cn(
-        'flex shrink-0 flex-col overflow-hidden rounded-md border text-left outline-none transition-colors',
+        'flex shrink-0 flex-col overflow-hidden rounded-md border text-left outline-none',
         'hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         selected && 'border-primary bg-accent',
       )}
@@ -171,7 +171,12 @@ function Thumbnail({
       ) : thumb === undefined ? null : (
         <span className="font-medium text-muted-foreground text-xs">{photo.format}</span>
       )}
-      {photo.gps && (
+      {/* A hairline so light photos don't bleed into the tile background. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 shadow-[inset_0_-1px_0_rgb(0_0_0/0.08)] dark:shadow-[inset_0_-1px_0_rgb(255_255_255/0.08)]"
+      />
+      {photo.gps && !status && (
         <span className="absolute top-1 right-1 rounded bg-background/85 px-1 font-medium text-[10px]">
           GPS
         </span>
@@ -182,7 +187,7 @@ function Thumbnail({
           data-status={status.kind}
           role="img"
           aria-label={STATUS_LABELS[status.kind]}
-          title={`${STATUS_LABELS[status.kind]}: ${statusReason(status)}`}
+          title={[STATUS_LABELS[status.kind], statusDetail(status)].filter(Boolean).join(': ')}
           className="absolute bottom-1 left-1 size-3 rounded-full border-2 border-background"
           style={{ backgroundColor: STATUS_COLORS[status.kind] }}
         />

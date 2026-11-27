@@ -11,7 +11,7 @@ import {
   type MatchStatus,
   PLACED_KINDS,
   STATUS_LABELS,
-  statusReason,
+  statusDetail,
 } from '@shared/match/status'
 import type { Position, TrackGeometry } from '@shared/preview'
 import type { MapSourceView } from '@shared/settings'
@@ -179,8 +179,8 @@ export function MapPanel({
             <h1 className="font-semibold text-2xl tracking-tight">Stecknadel</h1>
             <p className="mt-1 text-muted-foreground">
               {library
-                ? 'Load a track to place the photos.'
-                : 'Load a folder of photos and a track to see where each photo was taken.'}
+                ? 'Open a GPX file or fetch from Dawarich to place the photos'
+                : 'Open a folder of photos and a track to see where each was taken'}
             </p>
           </div>
         </div>
@@ -190,19 +190,24 @@ export function MapPanel({
         {selected && !empty && (
           <div
             data-testid="photo-actions"
-            className="pointer-events-auto shrink-0 rounded-lg border bg-background/95 p-3 shadow-sm"
+            className="pointer-events-auto flex shrink-0 flex-col gap-2 rounded-lg border bg-background/95 p-3 shadow-sm"
           >
-            <div className="flex items-center gap-2">
-              {selectedStatus && <StatusDot kind={selectedStatus.kind} />}
-              <span className="min-w-0 flex-1 truncate font-medium">{selected.name}</span>
-            </div>
-            {selectedStatus && (
-              <p data-testid="selected-status" className="mt-0.5 text-muted-foreground text-xs">
-                {STATUS_LABELS[selectedStatus.kind]} · {statusReason(selectedStatus)}
+            <h2 className="sr-only">{selected.name}</h2>
+            {selectedStatus ? (
+              <p data-testid="selected-status" className="flex items-start gap-2">
+                <StatusDot kind={selectedStatus.kind} className="mt-1.5" />
+                <span className="min-w-0">
+                  <span className="font-medium">{STATUS_LABELS[selectedStatus.kind]}</span>
+                  {statusDetail(selectedStatus) && (
+                    <span className="block text-muted-foreground text-xs">
+                      {statusDetail(selectedStatus)}
+                    </span>
+                  )}
+                </span>
               </p>
-            )}
+            ) : null}
             {mode ? (
-              <div className="mt-2 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <p className="flex-1 text-xs">
                   {mode === 'copy'
                     ? 'Click the pin of the photo to copy from.'
@@ -227,7 +232,7 @@ export function MapPanel({
                 onClose={() => setFinder(null)}
               />
             ) : (
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 <Button
                   size="sm"
                   variant="outline"
@@ -260,7 +265,7 @@ export function MapPanel({
                   onClick={() => setMode('copy')}
                 >
                   <Copy />
-                  Copy location…
+                  Copy location
                 </Button>
                 {selectedStatus?.kind === 'manual' && (
                   <Button
@@ -312,7 +317,9 @@ export function MapPanel({
                         <StatusDot kind={r.status.kind} />
                         <span className="truncate font-medium">{photoById.get(r.id)?.name}</span>
                       </span>
-                      <span className="pl-4 text-muted-foreground">{statusReason(r.status)}</span>
+                      <span className="pl-4 text-muted-foreground">
+                        {statusDetail(r.status) ?? STATUS_LABELS[r.status.kind]}
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -369,11 +376,17 @@ export function MapPanel({
   )
 }
 
-function StatusDot({ kind }: { kind: MatchKind }): React.JSX.Element {
+function StatusDot({
+  kind,
+  className,
+}: {
+  kind: MatchKind
+  className?: string
+}): React.JSX.Element {
   return (
     <span
       aria-hidden
-      className="size-2.5 shrink-0 rounded-full"
+      className={cn('size-2.5 shrink-0 rounded-full', className)}
       style={{ backgroundColor: STATUS_COLORS[kind] }}
     />
   )
@@ -412,7 +425,7 @@ function FinderResult({
 }): React.JSX.Element {
   if (finder.candidates.length === 0) {
     return (
-      <div data-testid="finder-result" className="mt-2 text-xs">
+      <div data-testid="finder-result" className="text-xs">
         <p>The track doesn’t pass within 150 m of there.</p>
         <div className="mt-1.5 flex gap-1.5">
           <Button size="sm" variant="outline" className="h-7" onClick={onRetry}>
@@ -426,7 +439,7 @@ function FinderResult({
     )
   }
   return (
-    <div data-testid="finder-result" className="mt-2 flex flex-col gap-1.5 text-xs">
+    <div data-testid="finder-result" className="flex flex-col gap-1.5 text-xs">
       {finder.candidates.map((c) => (
         <div
           key={`${c.trackUtc}`}
@@ -492,7 +505,14 @@ function PinHoverCard({
         {time?.utc && (
           <p className="text-muted-foreground tabular-nums">{formatInstant(time.utc)}</p>
         )}
-        {status && <p>{statusReason(status)}</p>}
+        {status && (
+          <p>
+            {STATUS_LABELS[status.kind]}
+            {statusDetail(status) && (
+              <span className="text-muted-foreground"> · {statusDetail(status)}</span>
+            )}
+          </p>
+        )}
       </div>
     </div>
   )

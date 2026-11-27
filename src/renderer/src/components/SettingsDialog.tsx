@@ -19,7 +19,7 @@ import {
   saveSettingsSchema,
   type WritingSettings,
 } from '@shared/settings'
-import { Settings as SettingsIcon } from 'lucide-react'
+import { LoaderCircle, Settings as SettingsIcon } from 'lucide-react'
 import { type ReactNode, useId, useState } from 'react'
 
 interface SettingsDialogProps {
@@ -312,7 +312,7 @@ export function SettingsDialog({
                   variant="outline"
                   onClick={() => void choosePmtiles()}
                 >
-                  Choose…
+                  Choose file
                 </Button>
               </div>
             )}
@@ -334,7 +334,8 @@ export function SettingsDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={saving || invalid.size > 0}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving && <LoaderCircle className="animate-spin motion-reduce:animate-none" />}
+              Save
             </Button>
           </DialogFooter>
         </form>

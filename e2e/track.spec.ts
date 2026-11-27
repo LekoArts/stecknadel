@@ -45,7 +45,7 @@ test('loads a GPX track and shows its points and time span', async () => {
         filePaths: [chosen],
       })) as unknown as typeof dialog.showOpenDialog
     }, gpx)
-    await page.getByRole('button', { name: 'Load GPX…' }).click()
+    await page.getByRole('button', { name: 'Open GPX file' }).click()
     const summary = page.getByTestId('track-summary')
     await expect(summary).toContainText('synthetic-trip.gpx')
     await expect(summary).toContainText('663 points')
@@ -59,7 +59,7 @@ test('fetches a track from Dawarich; the API key never reaches the renderer', as
   const dawarich = await mockDawarich()
   const { page, close } = await launchWithProfile()
   try {
-    await page.getByRole('button', { name: 'Dawarich…' }).click()
+    await page.getByRole('button', { name: 'Fetch from Dawarich' }).click()
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('Server address').fill(dawarich.url)
     await dialog.getByLabel('API key').fill('wrong-key')
@@ -77,7 +77,7 @@ test('fetches a track from Dawarich; the API key never reaches the renderer', as
     const summary = page.getByTestId('track-summary')
     await expect(summary).toContainText('Dawarich')
     await expect(summary).toContainText('5 points · 1 skipped')
-    await expect(page.getByRole('button', { name: 'Dawarich…' })).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Fetch from Dawarich' })).toBeFocused()
 
     // Only the bearer header ever carried the key; the renderer only learns that one is saved.
     expect(new Set(dawarich.auth)).toEqual(new Set(['Bearer wrong-key', `Bearer ${KEY}`]))
@@ -95,7 +95,7 @@ test('fetches a track from Dawarich; the API key never reaches the renderer', as
     expect(visible.dom).not.toContain(KEY)
 
     // Reopening keeps the address; the key field is empty and says a key is saved.
-    await page.getByRole('button', { name: 'Dawarich…' }).click()
+    await page.getByRole('button', { name: 'Fetch from Dawarich' }).click()
     await expect(dialog.getByLabel('Server address')).toHaveValue(`${dawarich.url}/`)
     await expect(dialog.getByLabel('API key')).toHaveValue('')
     await expect(dialog.getByLabel('API key')).toHaveAttribute('placeholder', /Saved/)
