@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
-const lockPath = join(root, 'test/fixtures/fixtures.lock.json')
+export const lockPath = join(root, 'test/fixtures/fixtures.lock.json')
 export const cacheDir = join(root, 'test/fixtures/cache')
 
 export async function sha256File(path) {
@@ -31,13 +31,16 @@ export async function verifyFile(path, entry) {
   return null
 }
 
-async function download(entry) {
-  const target = join(cacheDir, entry.name)
+async function download(entry, dir) {
+  const target = join(dir, entry.name)
   if ((await verifyFile(target, entry)) === null) {
     console.log(`ok (cached)  ${entry.name}`)
     return true
   }
-  const res = await fetch(entry.url)
+  // Wikimedia refuses requests without a descriptive User-Agent.
+  const res = await fetch(entry.url, {
+    headers: { 'User-Agent': 'stecknadel-fixtures/1.0 (https://github.com/LekoArts/stecknadel)' },
+  })
   if (!res.ok) {
     console.error(`FAIL ${entry.name}: HTTP ${res.status}`)
     return false
@@ -55,13 +58,14 @@ async function download(entry) {
   return true
 }
 
-async function main() {
-  const { files } = JSON.parse(await readFile(lockPath, 'utf8'))
-  await mkdir(cacheDir, { recursive: true })
-  const results = await Promise.all(files.map(download))
-  if (results.includes(false)) process.exit(1)
+/** Downloads every file in a lock file into `dir`; false if any failed. */
+export async function fetchLocked(lock, dir) {
+  const { files } = JSON.parse(await readFile(lock, 'utf8'))
+  await mkdir(dir, { recursive: true })
+  const results = await Promise.all(files.map((entry) => download(entry, dir)))
+  return !results.includes(false)
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  await main()
+  if (!(await fetchLocked(lockPath, cacheDir))) process.exit(1)
 }

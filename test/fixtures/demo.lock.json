@@ -1,0 +1,113 @@
+{
+  "//": "Public-domain and CC0 photos from Wikimedia Commons for `pnpm make-demo`. Download-only, never committed.",
+  "files": [
+    {
+      "name": "halloween-pumpkin.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/b/b1/Halloween_2026_Pumpkins_C.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "c5e5fa98369d8de635bc93268a9d899a3244098928756db4c887ceaf4a11b590",
+      "size": 1094747,
+      "license": "CC0",
+      "author": "JanuaryFebruaryMarchAndApril",
+      "source": "https://commons.wikimedia.org/wiki/File:Halloween_2026_Pumpkins_C.jpg"
+    },
+    {
+      "name": "golden-gate-bridge.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/8/80/Golden_Gate_Bridge_1_%28Unsplash%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "6f751e33396b60b633178a14487479f87a8f4966664c2cbd2e2372a57b5ec263",
+      "size": 941449,
+      "license": "CC0",
+      "author": "Lucas Theis lucastheis",
+      "source": "https://commons.wikimedia.org/wiki/File:Golden_Gate_Bridge_1_(Unsplash).jpg"
+    },
+    {
+      "name": "golden-gate-in-fog.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/5/5f/Bridge_Over_Calm_Waters_%28Unsplash%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "27fa96484582e987367edb29d7d68d1d389f75fc1787cec9b9f9aa1bdbcfff3f",
+      "size": 1964425,
+      "license": "CC0",
+      "author": "Modestas Urbonas modestasu",
+      "source": "https://commons.wikimedia.org/wiki/File:Bridge_Over_Calm_Waters_(Unsplash).jpg"
+    },
+    {
+      "name": "lombard-street.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/a/ac/Crooked_Section_of_Lombard_Street.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "c6eeb21462e0d86b5b26a8862db0070b57e826d5b2459f0a9ba53ab105b8a3c9",
+      "size": 1200867,
+      "license": "CC0",
+      "author": "Cornflower123",
+      "source": "https://commons.wikimedia.org/wiki/File:Crooked_Section_of_Lombard_Street.jpg"
+    },
+    {
+      "name": "alcatraz-ferry.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/26/Alcatraz_Island_ferry_-_July_2025_-_Sarah_Stierch.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "a97037d9e05d2c12c12f9e3364d56c0072530bbfc93dbb19056cfaa173f61d3b",
+      "size": 2377060,
+      "license": "CC0",
+      "author": "Missvain",
+      "source": "https://commons.wikimedia.org/wiki/File:Alcatraz_Island_ferry_-_July_2025_-_Sarah_Stierch.jpg"
+    },
+    {
+      "name": "plane-window.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/7/79/Clouds_over_the_North_Sea.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "a3c108017b2ded5c254aeedb03de53aba83af910bcf30417389a2bc603f40086",
+      "size": 501486,
+      "license": "CC0",
+      "author": "Rose Abrams",
+      "source": "https://commons.wikimedia.org/wiki/File:Clouds_over_the_North_Sea.jpg"
+    },
+    {
+      "name": "canada-place.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/4/41/Vancouver_Convention_Centre_from_Seawall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "c59bf36f311e82032d57f9999de9c42339018cfd4a76e3bdfab907609b7afe62",
+      "size": 5422046,
+      "license": "CC0",
+      "author": "Ash-M-Bishop",
+      "source": "https://commons.wikimedia.org/wiki/File:Vancouver_Convention_Centre_from_Seawall.jpg"
+    },
+    {
+      "name": "stanley-park-seawall.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Stanley_Seawall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "91b6adbf7e32ad58734dc19863ed0738afa2e6dedd18399192a7dc1fff92c959",
+      "size": 1886153,
+      "license": "Public domain",
+      "author": "bobanny",
+      "source": "https://commons.wikimedia.org/wiki/File:Stanley_Seawall.jpg"
+    },
+    {
+      "name": "hotel-window-view.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/31/Vancouver_Skyline_September.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "44a29cab7fcaf3d67fae6ee7ce4a242ce12ea9266391f2424d3325e9daec14cf",
+      "size": 1749640,
+      "license": "CC0",
+      "author": "Suspencewl",
+      "source": "https://commons.wikimedia.org/wiki/File:Vancouver_Skyline_September.jpg"
+    },
+    {
+      "name": "gastown-at-night.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/7/73/Downtown_Vancouver_%28217286275%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "e96b5d60bacbc19aedc3efa4f9a86da19e977b51719362494bf3b027a9bdca22",
+      "size": 1160578,
+      "license": "CC0",
+      "author": "Aditya Chinchure",
+      "source": "https://commons.wikimedia.org/wiki/File:Downtown_Vancouver_(217286275).jpeg"
+    },
+    {
+      "name": "breakfast.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/93/Coffee_and_breakfast_sandwich.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "695feb3d3543a2bb5279becd5be761730fb1c68c90038115417f02989cf77eb2",
+      "size": 1940436,
+      "license": "CC0",
+      "author": "Kurt Kaiser",
+      "source": "https://commons.wikimedia.org/wiki/File:Coffee_and_breakfast_sandwich.jpg"
+    },
+    {
+      "name": "sunset-edit.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/30/Sunset_in_Vancouver_%28Unsplash%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "dc0cb169b0c1fd1ab0cbeb41e47358c21c16238a4142817938baa8df47412414",
+      "size": 3746702,
+      "license": "CC0",
+      "author": "Ferdinand Stöhr fellowferdi",
+      "source": "https://commons.wikimedia.org/wiki/File:Sunset_in_Vancouver_(Unsplash).jpg"
+    }
+  ]
+}
