@@ -39,6 +39,8 @@ interface MapPanelProps {
   geometry: TrackGeometry | null
   preview: PreviewState
   utcs: Map<string, PhotoUtc>
+  /** Photos of the selected camera, or null for all cameras: the legend and Not placed list count only these. */
+  scope: Set<string> | null
   selectedId: string | null
   onSelect: (id: string) => void
   onApplyOffset: (photo: PhotoSummary, candidate: OffsetCandidate) => void
@@ -55,6 +57,7 @@ export function MapPanel({
   geometry,
   preview,
   utcs,
+  scope,
   selectedId,
   onSelect,
   onApplyOffset,
@@ -85,16 +88,21 @@ export function MapPanel({
 
   const counts = useMemo(() => {
     const c = new Map<MatchKind, number>()
-    for (const s of statuses.values()) c.set(s.kind, (c.get(s.kind) ?? 0) + 1)
+    for (const [id, s] of statuses) {
+      if (!scope || scope.has(id)) c.set(s.kind, (c.get(s.kind) ?? 0) + 1)
+    }
     return c
-  }, [statuses])
+  }, [statuses, scope])
 
   const notPlaced = useMemo(
     () =>
       (preview.snapshot?.results ?? []).filter(
-        (r) => !PLACED_KINDS.has(r.status.kind) && r.status.kind !== 'has-gps',
+        (r) =>
+          (!scope || scope.has(r.id)) &&
+          !PLACED_KINDS.has(r.status.kind) &&
+          r.status.kind !== 'has-gps',
       ),
-    [preview.snapshot],
+    [preview.snapshot, scope],
   )
 
   // A new selection starts from scratch.

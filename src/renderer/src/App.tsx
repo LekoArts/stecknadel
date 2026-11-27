@@ -199,6 +199,10 @@ export default function App(): React.JSX.Element {
       library?.photos.filter((p) => cameraFilter === null || p.cameraKey === cameraFilter) ?? [],
     [library, cameraFilter],
   )
+  const cameraScope = useMemo(
+    () => (cameraFilter === null ? null : new Set(cameraPhotos.map((p) => p.id))),
+    [cameraFilter, cameraPhotos],
+  )
   const selected = useMemo(
     () => library?.photos.find((p) => p.id === selectedId) ?? null,
     [library, selectedId],
@@ -512,6 +516,7 @@ export default function App(): React.JSX.Element {
                 geometry={geometry}
                 preview={preview}
                 utcs={utcs}
+                scope={cameraScope}
                 selectedId={selectedId}
                 onSelect={selectFromMap}
                 onApplyOffset={applyOffset}
