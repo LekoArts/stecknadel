@@ -1,5 +1,7 @@
-import { open, stat } from 'node:fs/promises'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { extname } from 'node:path'
+import { Readable } from 'node:stream'
 import { PMTILES_URL } from '@shared/settings'
 
 export const PMTILES_SCHEME = 'stecknadel-pmtiles'
@@ -68,16 +70,12 @@ export async function servePmtiles(request: Request, file: string | null): Promi
   }
   const [start, end] = range
   const length = end - start + 1
-  const body = Buffer.alloc(length)
-  if (request.method === 'GET' && length > 0) {
-    const fh = await open(file, 'r')
-    try {
-      await fh.read(body, 0, length, start)
-    } finally {
-      await fh.close()
-    }
-  }
-  return new Response(request.method === 'HEAD' ? null : body, {
+  // Streamed, so a multi-gigabyte archive never sits in main's memory; HEAD reads nothing.
+  const body =
+    request.method === 'GET' && length > 0
+      ? (Readable.toWeb(createReadStream(file, { start, end })) as ReadableStream<Uint8Array>)
+      : null
+  return new Response(body, {
     status: rangeHeader ? 206 : 200,
     headers: {
       ...headers,

@@ -1,4 +1,4 @@
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, symlink, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PMTILES_URL } from '@shared/settings'
@@ -50,6 +50,32 @@ describe('stecknadel-pmtiles protocol', () => {
     const past = await get(PMTILES_URL, fixture, `bytes=${size}-${size + 10}`)
     expect(past.status).toBe(416)
     expect(past.headers.get('content-range')).toBe(`bytes */${size}`)
+  })
+
+  it('streams a huge archive instead of loading it, and HEAD reads no body', async () => {
+    const big = join(dir, 'big.pmtiles')
+    await writeFile(big, 'PMTiles')
+    await truncate(big, 8 * 1024 ** 3)
+    const head = await servePmtiles(new Request(PMTILES_URL, { method: 'HEAD' }), big)
+    expect(head.status).toBe(200)
+    expect(head.headers.get('content-length')).toBe(String(8 * 1024 ** 3))
+    expect(head.body).toBeNull()
+    const before = process.memoryUsage().arrayBuffers
+    const whole = await get(PMTILES_URL, big)
+    expect(whole.status).toBe(200)
+    // Left unread long enough for any read-ahead to pile up: it must stay bounded.
+    await new Promise((r) => setTimeout(r, 500))
+    expect(process.memoryUsage().arrayBuffers - before).toBeLessThan(64 * 1024 ** 2)
+    const reader = whole.body?.getReader()
+    const first = await reader?.read()
+    expect(
+      Buffer.from(first?.value ?? [])
+        .subarray(0, 7)
+        .toString(),
+    ).toBe('PMTiles')
+    await reader?.cancel()
+    const tail = await get(PMTILES_URL, big, `bytes=${8 * 1024 ** 3 - 4}-`)
+    expect((await tail.arrayBuffer()).byteLength).toBe(4)
   })
 
   it('serves only the chosen file, at the fixed URL', async () => {
