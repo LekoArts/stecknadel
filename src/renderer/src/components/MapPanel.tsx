@@ -157,6 +157,8 @@ export function MapPanel({
   }
 
   const canFind = !!(geometry && selectedTime?.utc)
+  // Excluded files are never written, so a position for them would go nowhere.
+  const excluded = selectedStatus?.kind === 'excluded'
   const empty = !library || !hasTrack
 
   return (
@@ -271,6 +273,7 @@ export function MapPanel({
                   size="sm"
                   variant="outline"
                   className="h-7"
+                  disabled={excluded}
                   onClick={() => setMode('place')}
                 >
                   <Pin />
@@ -280,7 +283,7 @@ export function MapPanel({
                   size="sm"
                   variant="outline"
                   className="h-7"
-                  disabled={pins.every((p) => p.id === selected.id)}
+                  disabled={excluded || pins.every((p) => p.id === selected.id)}
                   onClick={() => setMode('copy')}
                 >
                   <Copy />
