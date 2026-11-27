@@ -30,7 +30,7 @@ jobs:
 
   e2e:
     # The 5,000-photo benchmarks take as long as everything else together: their own job runs
-    # them alongside the rest.
+    # them alongside the rest, on macOS only.
     name: ${{ matrix.suite == 'perf' && 'Perf' || 'E2E' }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -38,6 +38,10 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
         suite: [e2e, perf]
+        # One platform is enough to catch a regression; Windows runners take twice as long.
+        exclude:
+          - os: windows-latest
+            suite: perf
     defaults:
       run:
         shell: bash
