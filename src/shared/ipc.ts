@@ -140,13 +140,17 @@ export const ipcNames = Object.keys(ipcContract) as IpcName[]
 
 export const ipcChannel = (name: IpcName): string => `stecknadel:${name}`
 
+/** A View menu panel command. */
+export type PanelCommand = 'cameras' | 'photos' | 'metadata' | 'map-only'
+
 /** main → renderer events. */
 export interface IpcEvents {
   libraryProgress: LibraryProgress
   trackProgress: { page: number; totalPages: number }
+  panel: PanelCommand
 }
 export type IpcEventName = keyof IpcEvents
-export const ipcEventNames: IpcEventName[] = ['libraryProgress', 'trackProgress']
+export const ipcEventNames: IpcEventName[] = ['libraryProgress', 'trackProgress', 'panel']
 export const ipcEventChannel = (name: IpcEventName): string => `stecknadel:event:${name}`
 
 export type StecknadelApi = {

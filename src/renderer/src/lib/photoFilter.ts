@@ -59,7 +59,8 @@ export function sortPhotos(
   const value = (p: PhotoSummary): string | number | null => {
     switch (sort.key) {
       case 'name':
-        return p.relDir ? `${p.relDir}/${p.name}` : p.name
+        // The column shows the file name; the folder only breaks ties.
+        return `${p.name}\u0000${p.relDir}`
       case 'camera':
         return ctx.cameraNames.get(p.cameraKey) ?? null
       case 'captured':

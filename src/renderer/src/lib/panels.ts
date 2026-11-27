@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { type PanelImperativeHandle, type PanelSize, usePanelRef } from 'react-resizable-panels'
 
 export type PanelId = 'cameras' | 'photos' | 'metadata'
@@ -18,13 +18,37 @@ export const PANEL_KEY: Record<PanelId, string> = { cameras: '1', photos: '2', m
 const SIZES_KEY = 'stecknadel.panelSizes.v1'
 const HIDDEN_KEY = 'stecknadel.mapOnlyRestore.v1'
 
-function readJson<T>(key: string, fallback: T): T {
+function readJson(key: string): unknown {
   try {
-    const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as T) : fallback
+    return JSON.parse(localStorage.getItem(key) ?? 'null')
   } catch {
-    return fallback
+    return null
   }
+}
+
+/** Saved sizes that still make sense; anything else is dropped. */
+function readSizes(): Partial<Record<PanelId, number>> {
+  const raw = readJson(SIZES_KEY)
+  const out: Partial<Record<PanelId, number>> = {}
+  if (raw && typeof raw === 'object') {
+    for (const id of PANEL_IDS) {
+      const size = (raw as Record<string, unknown>)[id]
+      if (typeof size === 'number' && Number.isFinite(size) && size > 0) out[id] = size
+    }
+  }
+  return out
+}
+
+function readRestore(): PanelId[] {
+  const raw = readJson(HIDDEN_KEY)
+  const ids = Array.isArray(raw) ? PANEL_IDS.filter((id) => raw.includes(id)) : []
+  return ids.length ? ids : PANEL_IDS
+}
+
+/** Moves focus out of a panel that is closing, to its toggle. */
+function rescueFocus(id: PanelId, toggle: HTMLButtonElement | null): void {
+  const content = document.querySelector(`[data-panel="${id}"]`)
+  if (content?.contains(document.activeElement)) toggle?.focus()
 }
 
 export const isMac = navigator.platform.startsWith('Mac')
@@ -62,16 +86,17 @@ export function usePanels(): Panels {
   const openRef = useRef(open)
   openRef.current = open
 
-  const onResize = useCallback(
-    (id: PanelId) => (size: PanelSize) => {
+  const onResize =
+    (id: PanelId) =>
+    (size: PanelSize): void => {
       const isOpen = size.inPixels > 0
+      // Collapsed by dragging: same focus rule as the toggle.
+      if (!isOpen) rescueFocus(id, toggleRefs[id].current)
       setOpen((current) => (current[id] === isOpen ? current : { ...current, [id]: isOpen }))
-    },
-    [],
-  )
+    }
 
   const rememberSizes = (ids: PanelId[]): void => {
-    const sizes = readJson<Partial<Record<PanelId, number>>>(SIZES_KEY, {})
+    const sizes = readSizes()
     for (const id of ids) {
       const panel = refs[id].current
       if (panel && !panel.isCollapsed()) sizes[id] = Math.round(panel.getSize().inPixels)
@@ -82,7 +107,7 @@ export function usePanels(): Panels {
   const show = (id: PanelId): void => {
     const panel = refs[id].current
     if (!panel?.isCollapsed()) return
-    const saved = readJson<Partial<Record<PanelId, number>>>(SIZES_KEY, {})[id]
+    const saved = readSizes()[id]
     panel.resize(Math.max(saved ?? PANEL_DEFAULT[id], PANEL_MIN[id]))
   }
 
@@ -90,9 +115,7 @@ export function usePanels(): Panels {
     const panel = refs[id].current
     if (!panel || panel.isCollapsed()) return
     rememberSizes([id])
-    // Don't leave focus on a control that is about to disappear.
-    const content = document.querySelector(`[data-panel="${id}"]`)
-    if (content?.contains(document.activeElement)) toggleRefs[id].current?.focus()
+    rescueFocus(id, toggleRefs[id].current)
     panel.collapse()
   }
 
@@ -105,29 +128,23 @@ export function usePanels(): Panels {
       for (const id of visible) hide(id)
       return
     }
-    const restore = readJson<PanelId[]>(HIDDEN_KEY, PANEL_IDS).filter((id) =>
-      PANEL_IDS.includes(id),
-    )
-    for (const id of restore.length ? restore : PANEL_IDS) show(id)
+    for (const id of readRestore()) show(id)
   }
 
   const actions = useRef({ toggle, toggleMapOnly })
   actions.current = { toggle, toggleMapOnly }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (!(isMac ? e.metaKey : e.ctrlKey) || e.shiftKey || e.altKey) return
-      // A dialog or popover owns the keyboard.
-      if (document.querySelector('[role="dialog"]')) return
-      const id = PANEL_IDS.find((p) => PANEL_KEY[p] === e.key)
-      if (id) actions.current.toggle(id)
-      else if (e.key === '0') actions.current.toggleMapOnly()
-      else return
-      e.preventDefault()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  // The View menu owns the shortcuts (see main/menu.ts).
+  useEffect(
+    () =>
+      window.stecknadel.on('panel', (command) => {
+        // A dialog or popover owns the keyboard.
+        if (document.querySelector('[role="dialog"]')) return
+        if (command === 'map-only') actions.current.toggleMapOnly()
+        else actions.current.toggle(command)
+      }),
+    [],
+  )
 
   return { refs, toggleRefs, open, onResize, rememberSizes, toggle, toggleMapOnly, show }
 }

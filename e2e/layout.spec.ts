@@ -7,7 +7,14 @@ import { launchApp } from './helpers/app'
 import { copyFixtures, launchWithProfile, openFolder } from './helpers/library'
 
 const fixtures = join(__dirname, '../test/fixtures')
-const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+/** The View menu's panel commands (Cmd/Ctrl+1/2/3/0): accelerators are native, so click the item. */
+async function panelCommand(app: ElectronApplication, id: string): Promise<void> {
+  await app.evaluate(({ Menu }, itemId) => {
+    const item = Menu.getApplicationMenu()?.getMenuItemById(`panel-${itemId}`)
+    if (!item) throw new Error(`no menu item ${itemId}`)
+    item.click()
+  }, id)
+}
 
 async function width(page: Page, label: string): Promise<number> {
   const box = await page.getByRole('complementary', { name: label }).boundingBox()
@@ -25,7 +32,7 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
     const cameras = page.getByRole('complementary', { name: 'Cameras' })
     const photos = page.getByRole('region', { name: 'Photos' })
     const metadata = page.getByRole('complementary', { name: 'Metadata' })
-    const toggles = page.getByRole('toolbar', { name: 'Panels' })
+    const toggles = page.getByRole('group', { name: 'Panels' })
 
     // Keyboard resize on the cameras separator: arrows grow it.
     const before = await width(page, 'Cameras')
@@ -42,9 +49,9 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
       'aria-pressed',
       'false',
     )
-    await page.keyboard.press(`${mod}+2`)
+    await panelCommand(first.app, 'photos')
     await expect(photos).toHaveCount(0)
-    await page.keyboard.press(`${mod}+3`)
+    await panelCommand(first.app, 'metadata')
     await expect(metadata).toHaveCount(0)
     const canvas = page.locator('canvas.maplibregl-canvas')
     const windowWidth = await page.evaluate(() => innerWidth)
@@ -55,7 +62,7 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
     const fullWidth = (await canvas.boundingBox())?.width ?? 0
 
     // Map only remembers what was open: here nothing, so it opens everything.
-    await page.keyboard.press(`${mod}+0`)
+    await panelCommand(first.app, 'map-only')
     await expect(cameras).toBeVisible()
     await expect(photos).toBeVisible()
     await expect(metadata).toBeVisible()
@@ -63,7 +70,7 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
     await expect.poll(async () => (await canvas.boundingBox())?.width ?? 0).toBeLessThan(fullWidth)
 
     // Map only, then back: only the panels that were open return.
-    await page.keyboard.press(`${mod}+3`)
+    await panelCommand(first.app, 'metadata')
     await toggles.getByRole('button', { name: 'Map only' }).click()
     await expect(cameras).toBeHidden()
     await expect(photos).toHaveCount(0)
@@ -81,7 +88,7 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
     await page.mouse.move(box.x + box.width / 2, box.y + 250, { steps: 10 })
     await page.mouse.up()
     await expect(photos).toHaveCount(0)
-    await page.keyboard.press(`${mod}+2`)
+    await panelCommand(first.app, 'photos')
     await expect(photos).toBeVisible()
     expect((await photos.boundingBox())?.height ?? 0).toBeGreaterThan(200)
 
@@ -92,7 +99,7 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
     await expect(again.getByRole('complementary', { name: 'Cameras' })).toBeVisible()
     await expect(again.getByRole('complementary', { name: 'Metadata' })).toHaveCount(0)
     expect(Math.abs((await width(again, 'Cameras')) - grown)).toBeLessThan(3)
-    await again.keyboard.press(`${mod}+3`)
+    await panelCommand(second, 'metadata')
     await expect(again.getByRole('complementary', { name: 'Metadata' })).toBeVisible()
     expect(await width(again, 'Metadata')).toBeGreaterThanOrEqual(240)
   } finally {
@@ -146,34 +153,34 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
     await expect(page.getByTestId('photo-status')).toHaveCount(4)
     await expect(page.getByTestId('preview-state')).toBeHidden()
 
-    const toolbar = page.getByRole('toolbar', { name: 'Photo view' })
+    const toolbar = page.getByRole('group', { name: 'Photo view' })
     await toolbar.getByRole('button', { name: 'List' }).click()
     const rows = page.getByTestId('photo-row')
     await expect(rows).toHaveCount(4)
-    const names = () => rows.getByRole('button').allInnerTexts()
+    const names = rows.getByRole('button')
 
     const nameHeader = page.getByRole('columnheader', { name: 'Name' })
     await nameHeader.getByRole('button').click()
     await expect(nameHeader).toHaveAttribute('aria-sort', 'ascending')
-    expect(await names()).toEqual(['a.jpg', 'b-day2.jpg', 'b-late.jpg', 'c-gps.jpg'])
+    await expect(names).toHaveText(['a.jpg', 'b-day2.jpg', 'b-late.jpg', 'c-gps.jpg'])
     await nameHeader.getByRole('button').click()
     await expect(nameHeader).toHaveAttribute('aria-sort', 'descending')
-    expect(await names()).toEqual(['c-gps.jpg', 'b-late.jpg', 'b-day2.jpg', 'a.jpg'])
+    await expect(names).toHaveText(['c-gps.jpg', 'b-late.jpg', 'b-day2.jpg', 'a.jpg'])
 
     const status = toolbar.getByRole('group', { name: 'Status' })
     await status.getByRole('button', { name: /Needs attention/ }).click()
-    expect(await names()).toEqual(['b-late.jpg'])
+    await expect(names).toHaveText(['b-late.jpg'])
     await status.getByRole('button', { name: /has GPS/ }).click()
-    expect(await names()).toEqual(['c-gps.jpg'])
+    await expect(names).toHaveText(['c-gps.jpg'])
     await status.getByRole('button', { name: /Placed/ }).click()
-    expect(await names()).toEqual(['b-day2.jpg', 'a.jpg'])
+    await expect(names).toHaveText(['b-day2.jpg', 'a.jpg'])
 
     // With the camera list hidden the toolbar picks the camera; the filter is the sidebar's.
     await expect(toolbar.getByRole('combobox', { name: 'Camera' })).toHaveCount(0)
-    await page.keyboard.press(`${mod}+1`)
+    await panelCommand(app, 'cameras')
     await toolbar.getByRole('combobox', { name: 'Camera' }).click()
     await page.getByRole('option', { name: /Camera C/ }).click()
-    await page.keyboard.press(`${mod}+1`)
+    await panelCommand(app, 'cameras')
     await expect(
       page
         .getByTestId('camera')

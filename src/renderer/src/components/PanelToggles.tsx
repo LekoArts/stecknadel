@@ -10,8 +10,7 @@ const ICONS: Record<PanelId, typeof PanelLeft> = {
 
 export function PanelToggles({ panels }: { panels: Panels }): React.JSX.Element {
   return (
-    <div
-      role="toolbar"
+    <fieldset
       aria-label="Panels"
       className="absolute top-3 right-3 z-10 flex gap-0.5 rounded-lg border bg-background/95 p-0.5 shadow-sm"
     >
@@ -47,6 +46,6 @@ export function PanelToggles({ panels }: { panels: Panels }): React.JSX.Element 
       >
         <Maximize2 />
       </Button>
-    </div>
+    </fieldset>
   )
 }

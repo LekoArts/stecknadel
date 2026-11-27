@@ -20,6 +20,7 @@ import { exiftool } from './exiftool'
 import { createHandlers } from './handlers'
 import { registerIpc } from './ipc'
 import { Library } from './library/library'
+import { installMenu } from './menu'
 import { PMTILES_SCHEME, servePmtiles } from './pmtilesProtocol'
 import { PreviewEngine } from './preview'
 import { Secrets } from './secrets'
@@ -234,6 +235,11 @@ app.whenReady().then(async () => {
     isAppUrl,
   )
 
+  installMenu((command) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(ipcEventChannel('panel'), command)
+    }
+  })
   createWindow()
 
   app.on('activate', () => {

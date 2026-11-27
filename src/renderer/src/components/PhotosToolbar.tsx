@@ -36,8 +36,9 @@ export function PhotosToolbar({
   onStatusFilter,
 }: PhotosToolbarProps): React.JSX.Element {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a fieldset can't lay out as a toolbar row
     <div
-      role="toolbar"
+      role="group"
       aria-label="Photo view"
       className="flex shrink-0 items-center gap-2 overflow-x-auto border-b px-3 py-1.5"
     >

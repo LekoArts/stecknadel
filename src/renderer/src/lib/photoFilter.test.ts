@@ -86,6 +86,14 @@ describe('sortPhotos', () => {
     expect(ids(sortPhotos(photos, { key: 'name', dir: 'desc' }, ctx))).toEqual(['p10', 'p2', 'p1'])
   })
 
+  it('sorts by the shown file name, not the folder', () => {
+    const nested = [
+      photo('x', { name: 'z.jpg', relDir: 'a' }),
+      photo('y', { name: 'a.jpg', relDir: 'b' }),
+    ]
+    expect(ids(sortPhotos(nested, { key: 'name', dir: 'asc' }, ctx))).toEqual(['y', 'x'])
+  })
+
   it('puts missing values last in both directions', () => {
     expect(ids(sortPhotos(photos, { key: 'captured', dir: 'asc' }, ctx))).toEqual([
       'p1',

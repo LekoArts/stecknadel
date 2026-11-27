@@ -313,9 +313,15 @@ export default function App(): React.JSX.Element {
       : filtered
   }, [cameraPhotos, activeStatusFilter, statuses, utcs, view, sort, cameraNames])
 
-  /** Selecting from the map: a status filter that hides the photo gets out of the way. */
+  /** Selecting from the map: filters that would hide the photo get out of the way. */
   const selectFromMap = (id: string | null): void => {
-    if (id && activeStatusFilter && !inGroup(activeStatusFilter, statuses.get(id), utcs.get(id))) {
+    const photo = id ? library?.photos.find((p) => p.id === id) : undefined
+    if (photo && cameraFilter !== null && photo.cameraKey !== cameraFilter) setCameraFilter(null)
+    if (
+      photo &&
+      activeStatusFilter &&
+      !inGroup(activeStatusFilter, statuses.get(photo.id), utcs.get(photo.id))
+    ) {
       setStatusFilter(null)
     }
     setSelectedId(id)

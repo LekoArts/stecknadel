@@ -12,6 +12,8 @@ import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 const ROW_HEIGHT = 36
+/** The sticky header row, border included: rows start below it and scroll under it. */
+const HEADER_HEIGHT = 32
 
 interface Column {
   key: SortKey
@@ -60,6 +62,8 @@ export function PhotoList({
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 8,
+    scrollMargin: HEADER_HEIGHT,
+    scrollPaddingStart: HEADER_HEIGHT,
   })
 
   useEffect(() => {
@@ -90,7 +94,7 @@ export function PhotoList({
           <tr
             aria-rowindex={1}
             className="grid border-b px-3 text-muted-foreground text-xs"
-            style={{ gridTemplateColumns: template }}
+            style={{ gridTemplateColumns: template, height: HEADER_HEIGHT }}
           >
             <th>
               <span className="sr-only">Thumbnail</span>
@@ -105,7 +109,7 @@ export function PhotoList({
                 <button
                   type="button"
                   onClick={() => onSort(nextSort(c.key))}
-                  className="flex h-8 w-full items-center gap-1 px-2 text-left font-medium outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className="flex h-full w-full items-center gap-1 px-2 text-left font-medium outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
                   {c.label}
                   {sort?.key === c.key &&
@@ -126,7 +130,7 @@ export function PhotoList({
               <Row
                 key={photo.id}
                 index={item.index}
-                top={item.start}
+                top={item.start - HEADER_HEIGHT}
                 template={template}
                 photo={photo}
                 camera={showCamera ? (cameraNames.get(photo.cameraKey) ?? '') : null}

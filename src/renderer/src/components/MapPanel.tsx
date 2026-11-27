@@ -186,7 +186,7 @@ export function MapPanel({
         </div>
       )}
 
-      <div className="pointer-events-none absolute top-3 left-3 flex max-h-[calc(100%-5rem)] w-72 flex-col gap-2">
+      <div className="pointer-events-none absolute top-3 left-3 flex max-h-[calc(100%-5rem)] w-72 max-w-[calc(100%-10rem)] flex-col gap-2">
         {selected && !empty && (
           <div
             data-testid="photo-actions"
