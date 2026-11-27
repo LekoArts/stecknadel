@@ -16,8 +16,8 @@ export interface PreviewState {
 
 /**
  * Runs the ExifTool preview in main whenever settings, placements, photos or the track change,
- * debounced. Each run gets a new generation; main answers superseded runs with null, and only
- * the newest generation's result is kept here.
+ * debounced. Each run gets a new generation, and a result that arrives after the inputs changed
+ * again is dropped: only the newest run's answer is kept.
  */
 export function usePreview(
   library: LibrarySnapshot | null,
@@ -32,13 +32,13 @@ export function usePreview(
 
   useEffect(() => {
     if (!library || !track || track.count === 0 || settingsKey === null) {
-      generation.current += 1
       setState({ snapshot: null, running: false, error: null })
       return
     }
     setState((s) => ({ ...s, running: true }))
+    // Invalidates a run that is already in flight: its answer is for the old inputs.
+    const gen = ++generation.current
     const timer = setTimeout(() => {
-      const gen = ++generation.current
       window.stecknadel.runPreview({ generation: gen, cameras, manual }).then(
         (snapshot) => {
           if (gen !== generation.current || !snapshot) return
