@@ -167,7 +167,7 @@ export function MapView({
       attributionControl: { compact: true },
     })
     mapRef.current = map
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
     map.on('style.load', () => {
       styleLoading.current = false
       addLayers(map)
