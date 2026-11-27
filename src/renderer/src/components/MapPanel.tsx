@@ -36,6 +36,8 @@ interface MapPanelProps {
   statuses: Map<string, MatchStatus>
   /** Loading the track, its zones or the settings failed. */
   loadError: string | null
+  /** A retry is in flight: keep the button where the user clicked it, disabled. */
+  retrying: boolean
   onRetry: () => void
   utcs: Map<string, PhotoUtc>
   /** Photos of the selected camera, or null for all cameras: the legend and Not placed list count only these. */
@@ -57,6 +59,7 @@ export function MapPanel({
   preview,
   statuses,
   loadError,
+  retrying,
   onRetry,
   utcs,
   scope,
@@ -69,7 +72,8 @@ export function MapPanel({
   const [finder, setFinder] = useState<Finder>(null)
   const [listOpen, setListOpen] = useState(true)
 
-  const photoById = useMemo(() => new Map(library?.photos.map((p) => [p.id, p]) ?? []), [library])
+  const photos = library?.photos
+  const photoById = useMemo(() => new Map(photos?.map((p) => [p.id, p]) ?? []), [photos])
   const pins = useMemo(() => {
     const out: MapPin[] = []
     for (const r of preview.snapshot?.results ?? []) {
@@ -206,8 +210,14 @@ export function MapPanel({
             data-testid="load-error"
             className="pointer-events-auto flex items-center gap-1.5 self-start rounded-full border border-destructive/40 bg-background/95 px-3 py-1 text-destructive text-xs shadow-sm"
           >
-            {loadError}
-            <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={onRetry}>
+            <span className="min-w-0 break-words">{loadError}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 shrink-0 px-1.5"
+              disabled={retrying}
+              onClick={onRetry}
+            >
               Retry
             </Button>
           </div>

@@ -62,6 +62,12 @@ const CENTER_MIN_WIDTH = 360
 const MAP_MIN_HEIGHT = 200
 const VIEW_KEY = 'stecknadel.photoView.v1'
 
+/** The three loads the app needs before it can show anything; each can be retried alone. */
+type LoadSource = 'track' | 'geometry' | 'zones' | 'settings'
+type RetryCounts = Record<LoadSource, number>
+
+const NO_RETRIES: RetryCounts = { track: 0, geometry: 0, zones: 0, settings: 0 }
+
 type Load =
   | { status: 'idle' }
   | { status: 'loading'; progress: LibraryProgress | null }
@@ -88,9 +94,11 @@ export default function App(): React.JSX.Element {
   const [trackZones, setTrackZones] = useState<(string | null)[] | null>(null)
   const [settings, setSettings] = useState<SettingsView | null>(null)
   const [mapRevision, setMapRevision] = useState(0)
-  /** A failed load of the track, its zones or the settings; retried from the map. */
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [retryKey, setRetryKey] = useState(0)
+  /** Failed loads, by resource: shown on the map and retried from there. */
+  const [loadErrors, setLoadErrors] = useState<Partial<Record<LoadSource, string>>>({})
+  const [retries, setRetries] = useState<RetryCounts>(NO_RETRIES)
+  /** Resources whose retry is in flight: the button stays put, disabled, until they settle. */
+  const [retrying, setRetrying] = useState<LoadSource[]>([])
   const settingsKey = settings ? JSON.stringify([settings.matching, settings.writing]) : null
   const matchingKey = settings ? JSON.stringify(settings.matching) : null
   const defaultSettings = useMemo(() => defaultCameraSettings(localZone()), [])
@@ -129,12 +137,36 @@ export default function App(): React.JSX.Element {
     for (const key of keys) out[key] = timeSettings[key] ?? detected.get(key) ?? defaultSettings
     return out
   }, [libraryPhotos, timeSettings, detected, defaultSettings])
+  const settle = (source: LoadSource, error: string | null): void => {
+    setLoadErrors((current) => {
+      if (error === null) {
+        if (!(source in current)) return current
+        const next = { ...current }
+        delete next[source]
+        return next
+      }
+      return { ...current, [source]: error }
+    })
+    setRetrying((current) =>
+      current.includes(source) ? current.filter((s) => s !== source) : current,
+    )
+  }
+  const retryFailed = (): void => {
+    const failed = Object.keys(loadErrors) as LoadSource[]
+    setRetrying(failed)
+    setRetries((current) => {
+      const next = { ...current }
+      for (const source of failed) next[source] += 1
+      return next
+    })
+  }
+  const loadError = Object.values(loadErrors)[0] ?? null
   const originOf = (key: string): TimeOrigin =>
     timeSettings[key] ? 'user' : detected.has(key) ? 'track' : 'default'
   const preview = usePreview(libraryPhotos, track, cameraSettings, manual, settingsKey)
 
   // Bridged stays depend on the matching settings too.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: matchingKey is a refetch trigger
+  // biome-ignore lint/correctness/useExhaustiveDependencies: matchingKey and retries are triggers
   useEffect(() => {
     // Never leave the previous track's geometry on the map while the new one loads.
     setGeometry(null)
@@ -142,48 +174,75 @@ export default function App(): React.JSX.Element {
     let current = true
     window.stecknadel.getTrackGeometry().then(
       (g) => {
-        if (current) setGeometry(g)
+        if (!current) return
+        setGeometry(g)
+        settle('geometry', null)
       },
       (error) => {
-        if (current) setLoadError(ipcErrorMessage(error))
+        if (current) settle('geometry', ipcErrorMessage(error))
       },
     )
     return () => {
       current = false
     }
-  }, [track, matchingKey, retryKey])
+  }, [track, matchingKey, retries.track, retries.geometry])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retryKey is a refetch trigger
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retries are triggers
   useEffect(() => {
     setTrackZones(null)
     if (!track) return
     let current = true
     window.stecknadel.getTrackZones().then(
       (zones) => {
-        if (current) setTrackZones(zones)
+        if (!current) return
+        setTrackZones(zones)
+        settle('zones', null)
       },
       (error) => {
-        if (current) setLoadError(ipcErrorMessage(error))
+        if (current) settle('zones', ipcErrorMessage(error))
       },
     )
     return () => {
       current = false
     }
-  }, [track, retryKey])
+  }, [track, retries.track, retries.zones])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retryKey is a refetch trigger
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retries are triggers
   useEffect(() => {
+    let current = true
     window.stecknadel.getTrackState().then(
       (state) => {
+        if (!current) return
         setTrack(state.track)
         setDawarich(state.dawarich)
+        settle('track', null)
       },
-      (error) => setLoadError(ipcErrorMessage(error)),
+      (error) => {
+        if (current) settle('track', ipcErrorMessage(error))
+      },
     )
-    window.stecknadel
-      .getSettings()
-      .then(setSettings, (error) => setLoadError(ipcErrorMessage(error)))
-  }, [retryKey])
+    return () => {
+      current = false
+    }
+  }, [retries.track])
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retries are triggers
+  useEffect(() => {
+    let current = true
+    window.stecknadel.getSettings().then(
+      (next) => {
+        if (!current) return
+        setSettings(next)
+        settle('settings', null)
+      },
+      (error) => {
+        if (current) settle('settings', ipcErrorMessage(error))
+      },
+    )
+    return () => {
+      current = false
+    }
+  }, [retries.settings])
 
   useEffect(
     () =>
@@ -223,17 +282,16 @@ export default function App(): React.JSX.Element {
     [library],
   )
   const cameraPhotos = useMemo(
-    () =>
-      library?.photos.filter((p) => cameraFilter === null || p.cameraKey === cameraFilter) ?? [],
-    [library, cameraFilter],
+    () => libraryPhotos?.filter((p) => cameraFilter === null || p.cameraKey === cameraFilter) ?? [],
+    [libraryPhotos, cameraFilter],
   )
   const cameraScope = useMemo(
     () => (cameraFilter === null ? null : new Set(cameraPhotos.map((p) => p.id))),
     [cameraFilter, cameraPhotos],
   )
   const selected = useMemo(
-    () => library?.photos.find((p) => p.id === selectedId) ?? null,
-    [library, selectedId],
+    () => libraryPhotos?.find((p) => p.id === selectedId) ?? null,
+    [libraryPhotos, selectedId],
   )
   const fetchRange = useMemo(
     () => (libraryPhotos ? defaultFetchRange(libraryPhotos.map((p) => p.captureTime)) : null),
@@ -547,10 +605,8 @@ export default function App(): React.JSX.Element {
                 utcs={utcs}
                 scope={cameraScope}
                 loadError={loadError}
-                onRetry={() => {
-                  setLoadError(null)
-                  setRetryKey((k) => k + 1)
-                }}
+                retrying={retrying.length > 0}
+                onRetry={retryFailed}
                 selectedId={selectedId}
                 onSelect={selectFromMap}
                 onApplyOffset={applyOffset}
