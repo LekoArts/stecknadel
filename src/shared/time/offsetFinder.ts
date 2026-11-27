@@ -72,9 +72,11 @@ export function findOffsetCandidates(
   const stationaryLimit = options.stationaryMeters ?? STATIONARY
   const stationarySecs = options.stationarySecs ?? STATIONARY_SECS
   const cosLat = Math.cos(click.lat * RAD)
-  // Local equirectangular plane around the click, meters; fine at 150 m scale.
+  // Local equirectangular plane around the click, meters; fine at 150 m scale. Longitude
+  // differences wrap to ±180°, so a segment across the antimeridian stays short.
+  const wrap = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 180
   const xy = (p: { lat: number; lon: number }): [number, number] => [
-    (p.lon - click.lon) * RAD * EARTH * cosLat,
+    wrap(p.lon - click.lon) * RAD * EARTH * cosLat,
     (p.lat - click.lat) * RAD * EARTH,
   ]
 
@@ -83,8 +85,8 @@ export function findOffsetCandidates(
     const a = track[i]
     const b = track[i + 1]
     const [ax, ay] = xy(a)
-    const [bx, by] = xy(b)
-    const dx = bx - ax
+    const [, by] = xy(b)
+    const dx = wrap(b.lon - a.lon) * RAD * EARTH * cosLat
     const dy = by - ay
     const len2 = dx * dx + dy * dy
     const dt = b.t - a.t

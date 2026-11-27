@@ -138,7 +138,20 @@ describe('findOffsetCandidates', () => {
       2 * H,
       LIMITS,
     )
+    expect(candidates.length).toBeGreaterThan(0)
     for (const c of candidates) expect(c.trackUtc <= a.t || c.trackUtc >= b.t).toBe(true)
+  })
+
+  it('a segment across the antimeridian stays short: no false hit at Greenwich, a real hit at 180°', () => {
+    const t0 = utc('2026-06-01T00:00:00Z')
+    const track = [
+      { t: t0, lat: 0, lon: 179.9995 },
+      { t: t0 + 60, lat: 0, lon: -179.9995 },
+    ]
+    const w = wall(t0 + 30, 0)
+    expect(findOffsetCandidates(track, { lat: 0, lon: 0 }, w, 0, LIMITS)).toEqual([])
+    const [hit] = findOffsetCandidates(track, { lat: 0, lon: 180 }, w, 0, LIMITS)
+    expect(hit.trackUtc).toBeCloseTo(t0 + 30, 0)
   })
 
   it('a click at a stationary window → offset only, no drift, with the window’s time range', () => {
