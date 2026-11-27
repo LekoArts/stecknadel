@@ -1,6 +1,6 @@
 # AGENTS.md
 
-What the app is and its stack: [README.md](README.md). How the UI should look, read and behave: [DESIGN.md](DESIGN.md).
+What the app is and its stack: [README.md](README.md).
 
 ## Working loop
 
