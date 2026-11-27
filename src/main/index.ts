@@ -2,11 +2,12 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { ipcEventChannel } from '@shared/ipc'
+import { DEBUG_PREVIEW_CHANNEL, ipcEventChannel } from '@shared/ipc'
 import {
   app,
   BrowserWindow,
   dialog,
+  ipcMain,
   nativeImage,
   protocol,
   safeStorage,
@@ -19,6 +20,7 @@ import { exiftool } from './exiftool'
 import { createHandlers } from './handlers'
 import { registerIpc } from './ipc'
 import { Library } from './library/library'
+import { PreviewEngine } from './preview'
 import { Secrets } from './secrets'
 import { SettingsStore } from './settings'
 import { runSmoke } from './smoke'
@@ -163,6 +165,13 @@ app.whenReady().then(async () => {
   await settings.load()
   const secrets = new Secrets(join(userData, 'secrets.bin'), safeStorage)
   const thumbs = new ThumbnailCache(join(userData, 'thumbs'), exiftool, imageOps)
+  const preview = new PreviewEngine(exiftool)
+  app.on('will-quit', () => {
+    void preview.dispose()
+  })
+  if (process.env.STECKNADEL_E2E === '1') {
+    ipcMain.handle(DEBUG_PREVIEW_CHANNEL, () => preview.snapshot)
+  }
 
   protocol.handle(THUMB_SCHEME, async (request) => {
     const url = new URL(request.url)
@@ -190,6 +199,7 @@ app.whenReady().then(async () => {
       }),
       settings,
       secrets,
+      preview,
       tracks: { current: null },
       chooseFolder: () => choosePath({ title: 'Open photo folder', properties: ['openDirectory'] }),
       chooseGpxFile: () =>

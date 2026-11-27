@@ -10,25 +10,25 @@ const grIv = {
 describe('cameraIdentity', () => {
   it('keys two GR IV bodies by their maker-note serial into two cameras', () => {
     // GR IV DNGs have no EXIF serial; ExifTool reports [Pentax] SerialNumber / InternalSerialNumber.
-    const a = cameraIdentity({ ...grIv, SerialNumber: '0023105', InternalSerialNumber: 3092487 })
+    const a = cameraIdentity({ ...grIv, SerialNumber: '0012345', InternalSerialNumber: 3000001 })
     const b = cameraIdentity({ ...grIv, SerialNumber: '0029999', InternalSerialNumber: 3100000 })
-    expect(a.key).toBe('serial:RICOH IMAGING COMPANY, LTD.|0023105')
+    expect(a.key).toBe('serial:RICOH IMAGING COMPANY, LTD.|0012345')
     expect(b.key).toBe('serial:RICOH IMAGING COMPANY, LTD.|0029999')
     expect(a.key).not.toBe(b.key)
-    expect(a.defaultName).toBe('RICOH GR IV (…3105)')
+    expect(a.defaultName).toBe('RICOH GR IV (…2345)')
   })
 
   it('uses the X-T5 ExifIFD serial', () => {
     const id = cameraIdentity({
       Make: 'FUJIFILM',
       Model: 'X-T5',
-      SerialNumber: '3A006341',
+      SerialNumber: '3A000042',
       InternalSerialNumber: 'FF02B7285521     593536383831230203F84310113C65',
     })
     expect(id).toMatchObject({
-      key: 'serial:FUJIFILM|3A006341',
-      serial: '3A006341',
-      defaultName: 'X-T5 (…6341)',
+      key: 'serial:FUJIFILM|3A000042',
+      serial: '3A000042',
+      defaultName: 'X-T5 (…0042)',
     })
   })
 

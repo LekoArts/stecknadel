@@ -9,6 +9,7 @@ import { CameraNames } from './cameras-store'
 import { createHandlers } from './handlers'
 import { registerIpc } from './ipc'
 import { Library } from './library/library'
+import { PreviewEngine } from './preview'
 import { Secrets } from './secrets'
 import { SettingsStore } from './settings'
 import type { ThumbnailCache } from './thumbs'
@@ -61,6 +62,7 @@ beforeAll(async () => {
         encryptString: (plain) => Buffer.from(plain.split('').reverse().join('')),
         decryptString: (enc) => enc.toString().split('').reverse().join(''),
       }),
+      preview: new PreviewEngine(et),
       tracks: { current: null },
       chooseFolder,
       chooseGpxFile,

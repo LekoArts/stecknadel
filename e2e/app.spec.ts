@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test'
 import { launchApp } from './helpers/app'
 
 test('window opens with the security baseline', async () => {
-  const app = await launchApp()
+  // A normal launch: no test-only debug surface.
+  const app = await launchApp({ STECKNADEL_E2E: '' })
   try {
     const page = await app.firstWindow()
     await expect(page).toHaveTitle('Stecknadel')
@@ -12,19 +13,23 @@ test('window opens with the security baseline', async () => {
       require: typeof (window as unknown as { require?: unknown }).require,
       process: typeof (window as unknown as { process?: unknown }).process,
       api: Object.keys(window.stecknadel),
+      debug: 'stecknadelDebug' in window,
     }))
     expect(renderer.require).toBe('undefined')
     expect(renderer.process).toBe('undefined')
+    expect(renderer.debug).toBe(false)
     expect(renderer.api.sort()).toEqual([
       'fetchDawarich',
       'getAppInfo',
       'getMetadata',
       'getThumbnail',
+      'getTrackGeometry',
       'getTrackState',
       'loadGpx',
       'on',
       'openFolder',
       'renameCamera',
+      'runPreview',
       'saveDawarichSettings',
       'testDawarich',
     ])

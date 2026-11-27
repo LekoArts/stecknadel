@@ -4,8 +4,11 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, type Page, test } from '@playwright/test'
-import { exiftool } from 'exiftool-vendored'
+import { ExifTool } from 'exiftool-vendored'
 import { launchWithProfile, openFolder } from './helpers/library'
+
+// Own instance: the module singleton cannot be reused once another spec in this worker ends it.
+const exiftool = new ExifTool()
 
 const base = join(__dirname, '../test/fixtures/base.jpg')
 

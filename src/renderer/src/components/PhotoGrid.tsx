@@ -1,8 +1,10 @@
 import { formatCaptureTime } from '@renderer/lib/format'
+import { STATUS_COLORS } from '@renderer/lib/status'
 import { useThumbnail } from '@renderer/lib/thumbnails'
 import { formatInstant } from '@renderer/lib/time'
 import { cn } from '@renderer/lib/utils'
 import type { PhotoSummary } from '@shared/library'
+import { type MatchStatus, STATUS_LABELS, statusReason } from '@shared/match/status'
 import type { PhotoUtc } from '@shared/time/toUtc'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { TriangleAlert } from 'lucide-react'
@@ -16,6 +18,8 @@ interface PhotoGridProps {
   photos: PhotoSummary[]
   cameraNames: Map<string, string>
   utcs: Map<string, PhotoUtc>
+  /** Preview statuses; empty without a preview. */
+  statuses: Map<string, MatchStatus>
   /** Hide the camera line when the grid is already filtered to one camera. */
   showCamera: boolean
   selectedId: string | null
@@ -26,6 +30,7 @@ export function PhotoGrid({
   photos,
   cameraNames,
   utcs,
+  statuses,
   showCamera,
   selectedId,
   onSelect,
@@ -50,6 +55,12 @@ export function PhotoGrid({
     overscan: 2,
   })
 
+  // Keep the selected photo in view (it may have been picked on the map).
+  useEffect(() => {
+    const index = photos.findIndex((p) => p.id === selectedId)
+    if (index !== -1) virtualizer.scrollToIndex(Math.floor(index / columns), { align: 'auto' })
+  }, [selectedId, photos, columns, virtualizer])
+
   return (
     <div
       ref={scrollRef}
@@ -69,6 +80,7 @@ export function PhotoGrid({
                 photo={photo}
                 camera={showCamera ? cameraNames.get(photo.cameraKey) : undefined}
                 utc={utcs.get(photo.id)}
+                status={statuses.get(photo.id)}
                 selected={photo.id === selectedId}
                 onSelect={onSelect}
               />
@@ -84,12 +96,14 @@ function PhotoTile({
   photo,
   camera,
   utc,
+  status,
   selected,
   onSelect,
 }: {
   photo: PhotoSummary
   camera: string | undefined
   utc: PhotoUtc | undefined
+  status: MatchStatus | undefined
   selected: boolean
   onSelect: (id: string) => void
 }): React.JSX.Element {
@@ -97,6 +111,7 @@ function PhotoTile({
     <button
       type="button"
       data-testid="photo-tile"
+      data-photo-id={photo.id}
       aria-pressed={selected}
       onClick={() => onSelect(photo.id)}
       className={cn(
@@ -106,7 +121,7 @@ function PhotoTile({
       )}
       style={{ width: TILE_WIDTH, height: TILE_HEIGHT }}
     >
-      <Thumbnail photo={photo} />
+      <Thumbnail photo={photo} status={status} />
       <div className="flex min-w-0 flex-col gap-0.5 px-2 py-1.5 text-xs">
         <span
           className="truncate font-medium"
@@ -132,7 +147,13 @@ function PhotoTile({
   )
 }
 
-function Thumbnail({ photo }: { photo: PhotoSummary }): React.JSX.Element {
+function Thumbnail({
+  photo,
+  status,
+}: {
+  photo: PhotoSummary
+  status: MatchStatus | undefined
+}): React.JSX.Element {
   const thumb = useThumbnail(photo.id)
   return (
     <div className="relative grid h-[120px] w-full shrink-0 place-items-center overflow-hidden bg-muted">
@@ -154,6 +175,17 @@ function Thumbnail({ photo }: { photo: PhotoSummary }): React.JSX.Element {
         <span className="absolute top-1 right-1 rounded bg-background/85 px-1 font-medium text-[10px]">
           GPS
         </span>
+      )}
+      {status && (
+        <span
+          data-testid="photo-status"
+          data-status={status.kind}
+          role="img"
+          aria-label={STATUS_LABELS[status.kind]}
+          title={`${STATUS_LABELS[status.kind]}: ${statusReason(status)}`}
+          className="absolute bottom-1 left-1 size-3 rounded-full border-2 border-background"
+          style={{ backgroundColor: STATUS_COLORS[status.kind] }}
+        />
       )}
     </div>
   )

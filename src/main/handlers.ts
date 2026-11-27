@@ -7,9 +7,11 @@ import type { CameraNames } from './cameras-store'
 import type { Handlers } from './ipc'
 import type { Library } from './library/library'
 import { readMetadata } from './library/metadata'
+import type { PreviewEngine } from './preview'
 import type { Secrets } from './secrets'
 import type { SettingsStore } from './settings'
 import type { ThumbnailCache } from './thumbs'
+import { bridgeTrack } from './track/bridge'
 import { DawarichError, fetchDawarichTrack, parseDawarichUrl, testDawarich } from './track/dawarich'
 import { parseGpx } from './track/gpx'
 
@@ -21,6 +23,7 @@ export interface HandlerDeps {
   appInfo: () => Promise<IpcOutput<'getAppInfo'>>
   settings: SettingsStore
   secrets: Secrets
+  preview: PreviewEngine
   /** The loaded track, kept in main for the preview and writes. */
   tracks: { current: Track | null }
   /** Main's own pickers: the only way a path enters the app. */
@@ -88,6 +91,28 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       )
       tracks.current = track
       return summarizeTrack(track)
+    },
+    getTrackGeometry: async () => {
+      const track = tracks.current
+      if (!track) return null
+      const { geoMaxIntSecs, bridge } = settings.get().matching
+      return {
+        points: track.points.map((p): [number, number, number] => [p.t, p.lat, p.lon]),
+        intervals: bridgeTrack(track.points, geoMaxIntSecs, bridge).intervals,
+        geoMaxIntSecs,
+      }
+    },
+    runPreview: async (input) => {
+      const track = tracks.current
+      const photos = library.all()
+      if (!track || track.points.length === 0 || photos.length === 0) return null
+      const { geoMaxIntSecs, geoMaxExtSecs, bridge, overwriteGps } = settings.get().matching
+      return deps.preview.run(input, {
+        loadId: library.loadId,
+        photos: photos.map((p) => p.summary),
+        track,
+        options: { limits: { geoMaxIntSecs, geoMaxExtSecs }, bridge, overwriteGps },
+      })
     },
   }
 }

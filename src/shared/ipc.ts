@@ -7,6 +7,7 @@ import type {
   ThumbnailResult,
 } from './library'
 import { PHOTO_ID_PATTERN } from './library'
+import { type PreviewSnapshot, previewInputSchema, type TrackGeometry } from './preview'
 import type { TrackSummary } from './track/types'
 
 const photoRef = z.strictObject({ id: z.string().regex(PHOTO_ID_PATTERN) })
@@ -92,7 +93,23 @@ export const ipcContract = {
       ),
     output: z.custom<TrackSummary>(),
   },
+  /** The loaded track's points and bridged stays; null without a track. */
+  getTrackGeometry: {
+    input: z.undefined(),
+    output: z.custom<TrackGeometry | null>(),
+  },
+  /**
+   * Runs the ExifTool preview for these camera settings; null when superseded by a newer
+   * generation, or without photos or track.
+   */
+  runPreview: {
+    input: previewInputSchema,
+    output: z.custom<PreviewSnapshot | null>(),
+  },
 } as const
+
+/** Test-only (STECKNADEL_E2E=1): the last preview snapshot main holds. */
+export const DEBUG_PREVIEW_CHANNEL = 'stecknadel:debug:previewSnapshot'
 
 export type IpcContract = typeof ipcContract
 export type IpcName = keyof IpcContract

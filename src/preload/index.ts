@@ -1,4 +1,5 @@
 import {
+  DEBUG_PREVIEW_CHANNEL,
   type IpcEventName,
   type IpcName,
   ipcChannel,
@@ -28,3 +29,9 @@ function on(event: IpcEventName, listener: (payload: unknown) => void): () => vo
 }
 
 contextBridge.exposeInMainWorld('stecknadel', { ...calls, on } as StecknadelApi)
+
+if (process.env.STECKNADEL_E2E === '1') {
+  contextBridge.exposeInMainWorld('stecknadelDebug', {
+    previewSnapshot: () => ipcRenderer.invoke(DEBUG_PREVIEW_CHANNEL),
+  })
+}

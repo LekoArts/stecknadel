@@ -32,11 +32,11 @@ describe('readPhotoTags', () => {
     await copyFile(join(fixtures, 'generated/smoke.jpg'), file)
     await et.write(
       file,
-      { GPSLatitude: -33.5, GPSLongitude: -122.4, GPSAltitude: -10 },
+      { GPSLatitude: -33.5, GPSLongitude: 151.2, GPSAltitude: -10 },
       { writeArgs: ['-overwrite_original'] },
     )
     const tags = await readPhotoTags(et, file)
-    expect(tags.gps).toEqual({ latitude: -33.5, longitude: -122.4, altitude: -10 })
+    expect(tags.gps).toEqual({ latitude: -33.5, longitude: 151.2, altitude: -10 })
   })
 
   it('reads SubSecTimeOriginal from the CR3 fixture', async () => {

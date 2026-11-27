@@ -32,7 +32,7 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
   },
   renameCamera: {
     valid: [
-      { key: 'serial:FUJIFILM|3A006341', name: 'Fuji' },
+      { key: 'serial:FUJIFILM|3A000042', name: 'Fuji' },
       { key: 'unknown', name: '' },
     ],
     invalid: [
@@ -72,6 +72,36 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
       { start: '2026-11-02', end: '2026-11-03' },
       { start: '2020-01-01T00:00:00Z', end: '2026-11-03T00:00:00Z' },
       { start: '2026-11-02T00:00:00Z', end: '2026-11-03T00:00:00Z', url: 'https://x' },
+    ],
+  },
+  getTrackGeometry: { valid: [undefined], invalid: [{}, 'x'] },
+  runPreview: {
+    valid: [
+      { generation: 1, cameras: {}, manual: {} },
+      {
+        generation: 2,
+        cameras: {
+          'serial:X|1': {
+            segments: [{ tz: { kind: 'zone', id: 'Europe/Berlin' }, driftSeconds: 0 }],
+            useRecordedOffsets: true,
+            confirmed: false,
+          },
+        },
+        manual: { p0123456789abcdef01234567: { lat: 46.5, lon: 7.9, ele: null } },
+      },
+    ],
+    invalid: [
+      undefined,
+      { generation: 0, cameras: {}, manual: {} },
+      { generation: 1.5, cameras: {}, manual: {} },
+      { generation: 1, cameras: { k: { segments: [] } }, manual: {} },
+      { generation: 1, cameras: {}, manual: { '/etc/passwd': { lat: 1, lon: 1, ele: null } } },
+      {
+        generation: 1,
+        cameras: {},
+        manual: { p0123456789abcdef01234567: { lat: 91, lon: 1, ele: null } },
+      },
+      { generation: 1, cameras: {}, manual: {}, extra: true },
     ],
   },
 }

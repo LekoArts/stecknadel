@@ -1,16 +1,21 @@
 import { CameraList, type CameraTimeLabel } from '@renderer/components/CameraList'
 import { CameraTimePanel, type CameraTimeStats } from '@renderer/components/CameraTimePanel'
+import { MapPanel } from '@renderer/components/MapPanel'
 import { MetadataPanel } from '@renderer/components/MetadataPanel'
 import { PhotoGrid } from '@renderer/components/PhotoGrid'
 import { TrackPanel } from '@renderer/components/TrackPanel'
 import { Button } from '@renderer/components/ui/button'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
+import { usePreview } from '@renderer/lib/preview'
 import { clearThumbnailCache } from '@renderer/lib/thumbnails'
 import { localZone, tzLabel } from '@renderer/lib/time'
 import type { DawarichState } from '@shared/ipc'
-import type { LibraryProgress, LibrarySnapshot } from '@shared/library'
+import type { LibraryProgress, LibrarySnapshot, PhotoSummary } from '@shared/library'
+import type { Position, TrackGeometry } from '@shared/preview'
+import { applyOffsetCandidate } from '@shared/time/applyOffset'
 import { type CameraTimeSettings, defaultCameraSettings } from '@shared/time/cameraSettings'
 import { instantSeconds } from '@shared/time/exifDate'
+import type { OffsetCandidate } from '@shared/time/offsetFinder'
 import { type PhotoUtc, photoUtc } from '@shared/time/toUtc'
 import {
   defaultFetchRange,
@@ -37,7 +42,30 @@ export default function App(): React.JSX.Element {
   // Session only: across trips just the camera's name is remembered (user decision 4).
   const [timeSettings, setTimeSettings] = useState<Record<string, CameraTimeSettings>>({})
   const [fetchRequest, setFetchRequest] = useState<{ range: FetchRange } | null>(null)
+  const [manual, setManual] = useState<Record<string, Position>>({})
+  const [geometry, setGeometry] = useState<TrackGeometry | null>(null)
   const defaultSettings = useMemo(() => defaultCameraSettings(localZone()), [])
+  // Every camera's settings, defaults included: what the preview (and later the write) uses.
+  const cameraSettings = useMemo(() => {
+    const out: Record<string, CameraTimeSettings> = {}
+    for (const c of library?.cameras ?? []) out[c.key] = timeSettings[c.key] ?? defaultSettings
+    return out
+  }, [library, timeSettings, defaultSettings])
+  const preview = usePreview(library, track, cameraSettings, manual)
+
+  useEffect(() => {
+    if (!track) {
+      setGeometry(null)
+      return
+    }
+    let current = true
+    void window.stecknadel.getTrackGeometry().then((g) => {
+      if (current) setGeometry(g)
+    })
+    return () => {
+      current = false
+    }
+  }, [track])
 
   useEffect(() => {
     void window.stecknadel.getTrackState().then((state) => {
@@ -63,6 +91,7 @@ export default function App(): React.JSX.Element {
       if (snapshot) {
         clearThumbnailCache()
         setLibrary(snapshot)
+        setManual({})
         setCameraFilter(null)
         setSelectedId(null)
       }
@@ -144,6 +173,29 @@ export default function App(): React.JSX.Element {
     return out
   }, [track, utcs])
 
+  const statuses = useMemo(
+    () => new Map(preview.snapshot?.results.map((r) => [r.id, r.status]) ?? []),
+    [preview.snapshot],
+  )
+
+  const applyOffset = (photo: PhotoSummary, candidate: OffsetCandidate): void => {
+    const time = utcs.get(photo.id)
+    if (!time?.wall) return
+    const settings = settingsFor(photo.cameraKey)
+    setTimeSettings((current) => ({
+      ...current,
+      [photo.cameraKey]: applyOffsetCandidate(settings, time, photo.offsetTimeOriginal, candidate),
+    }))
+  }
+
+  const setPlacement = (id: string, position: Position | null): void =>
+    setManual((current) => {
+      const next = { ...current }
+      if (position) next[id] = position
+      else delete next[id]
+      return next
+    })
+
   const selectedCamera = library?.cameras.find((c) => c.key === cameraFilter) ?? null
   const loading = load.status === 'loading'
 
@@ -209,13 +261,18 @@ export default function App(): React.JSX.Element {
         </div>
       </aside>
 
-      <main aria-label="Map" className="flex items-center justify-center bg-muted/40">
-        <div className="text-center">
-          <h1 className="font-semibold text-2xl tracking-tight">Stecknadel</h1>
-          <p className="mt-1 text-muted-foreground">
-            Load a folder of photos and a track to see where each photo was taken.
-          </p>
-        </div>
+      <main aria-label="Map" className="relative min-h-0 bg-muted/40">
+        <MapPanel
+          library={library}
+          hasTrack={!!track && track.count > 0}
+          geometry={geometry}
+          preview={preview}
+          utcs={utcs}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onApplyOffset={applyOffset}
+          onManual={setPlacement}
+        />
       </main>
 
       <aside aria-label="Metadata" className="row-span-2 min-h-0 border-l">
@@ -264,6 +321,7 @@ export default function App(): React.JSX.Element {
               photos={photos}
               cameraNames={cameraNames}
               utcs={utcs}
+              statuses={statuses}
               showCamera={cameraFilter === null && library.cameras.length > 1}
               selectedId={selectedId}
               onSelect={setSelectedId}

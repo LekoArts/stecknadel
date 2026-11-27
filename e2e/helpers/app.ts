@@ -19,6 +19,7 @@ export function packagedDirExecutable(): string {
 export async function launchApp(env: Record<string, string> = {}): Promise<ElectronApplication> {
   return electron.launch({
     executablePath: process.env.STECKNADEL_APP_PATH || packagedDirExecutable(),
-    env: { ...process.env, ...env } as Record<string, string>,
+    // STECKNADEL_E2E exposes the test-only preview snapshot (never set in a normal launch).
+    env: { ...process.env, STECKNADEL_E2E: '1', ...env } as Record<string, string>,
   })
 }

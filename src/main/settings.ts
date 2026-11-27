@@ -1,14 +1,43 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { DEFAULT_BRIDGE, DEFAULT_LIMITS } from '@shared/match/status'
 import { z } from 'zod'
+
+const DAY = 86_400
+
+const matchingSchema = z.object({
+  geoMaxIntSecs: z
+    .number()
+    .int()
+    .min(60)
+    .max(7 * DAY),
+  geoMaxExtSecs: z
+    .number()
+    .int()
+    .min(60)
+    .max(7 * DAY),
+  bridge: z.object({
+    enabled: z.boolean(),
+    radiusMeters: z.number().min(10).max(5000),
+    maxGapHours: z.number().min(1).max(72),
+  }),
+  overwriteGps: z.boolean(),
+})
+
+const defaultMatching: z.infer<typeof matchingSchema> = {
+  ...DEFAULT_LIMITS,
+  bridge: DEFAULT_BRIDGE,
+  overwriteGps: false,
+}
 
 const settingsSchema = z.object({
   dawarichUrl: z.string().nullable().catch(null),
+  matching: matchingSchema.catch(defaultMatching),
 })
 
 export type Settings = z.infer<typeof settingsSchema>
 
-const defaults: Settings = { dawarichUrl: null }
+const defaults: Settings = { dawarichUrl: null, matching: defaultMatching }
 
 /** `settings.json` in userData. Unknown or invalid fields fall back to defaults. */
 export class SettingsStore {

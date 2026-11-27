@@ -33,6 +33,7 @@ export class Library {
   private photos = new Map<string, LoadedPhoto>()
   private cameras = new Map<string, CameraInfo>()
   private generation = 0
+  private loaded = 0
 
   constructor(
     private readonly et: ExifTool,
@@ -106,7 +107,17 @@ export class Library {
     this.root = root
     this.photos = photos
     this.cameras = cameras
+    this.loaded = generation
     return this.snapshot()
+  }
+
+  /** Changes whenever a new folder finishes loading. */
+  get loadId(): number {
+    return this.loaded
+  }
+
+  all(): LoadedPhoto[] {
+    return [...this.photos.values()]
   }
 
   snapshot(): LibrarySnapshot | null {
