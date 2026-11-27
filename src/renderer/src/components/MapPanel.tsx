@@ -1,18 +1,12 @@
 import { type ClickMode, type MapPin, MapView } from '@renderer/components/MapView'
 import { Button } from '@renderer/components/ui/button'
 import type { PreviewState } from '@renderer/lib/preview'
-import { STATUS_COLORS } from '@renderer/lib/status'
+import { notPlacedIds, STATUS_COLORS, statusCounts } from '@renderer/lib/status'
 import { useThumbnail } from '@renderer/lib/thumbnails'
 import { formatInstant, offsetLabel } from '@renderer/lib/time'
 import { cn } from '@renderer/lib/utils'
 import type { LibrarySnapshot, PhotoSummary } from '@shared/library'
-import {
-  type MatchKind,
-  type MatchStatus,
-  PLACED_KINDS,
-  STATUS_LABELS,
-  statusDetail,
-} from '@shared/match/status'
+import { type MatchKind, type MatchStatus, STATUS_LABELS, statusDetail } from '@shared/match/status'
 import type { Position, TrackGeometry } from '@shared/preview'
 import type { MapSourceView } from '@shared/settings'
 import { instantSeconds, secondsToInstant, wallAsUtcSeconds } from '@shared/time/exifDate'
@@ -86,24 +80,11 @@ export function MapPanel({
     return out
   }, [preview.snapshot, photoById])
 
-  const counts = useMemo(() => {
-    const c = new Map<MatchKind, number>()
-    for (const [id, s] of statuses) {
-      if (!scope || scope.has(id)) c.set(s.kind, (c.get(s.kind) ?? 0) + 1)
-    }
-    return c
-  }, [statuses, scope])
-
-  const notPlaced = useMemo(
-    () =>
-      (preview.snapshot?.results ?? []).filter(
-        (r) =>
-          (!scope || scope.has(r.id)) &&
-          !PLACED_KINDS.has(r.status.kind) &&
-          r.status.kind !== 'has-gps',
-      ),
-    [preview.snapshot, scope],
-  )
+  const counts = useMemo(() => statusCounts(statuses, scope), [statuses, scope])
+  const notPlaced = useMemo(() => {
+    const ids = new Set(notPlacedIds(statuses, scope))
+    return (preview.snapshot?.results ?? []).filter((r) => ids.has(r.id))
+  }, [preview.snapshot, statuses, scope])
 
   // A new selection starts from scratch.
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset on selection change only

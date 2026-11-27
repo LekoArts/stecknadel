@@ -379,7 +379,7 @@ function OffsetInput({
   )
 }
 
-function DriftEditor({
+export function DriftEditor({
   id,
   value,
   onChange,
