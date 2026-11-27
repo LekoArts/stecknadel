@@ -342,6 +342,12 @@ function OffsetInput({
   onChange: (value: string) => void
 }): React.JSX.Element {
   const [draft, setDraft] = useState(value)
+  // Copying another camera's zones changes the offset from outside: show it, don't keep the old.
+  const [shown, setShown] = useState(value)
+  if (value !== shown) {
+    setShown(value)
+    setDraft(value)
+  }
   const parsed = parseOffset(draft)
   const commit = (): void => {
     if (parsed === null) setDraft(value)
