@@ -532,6 +532,7 @@ export default function App(): React.JSX.Element {
                 hasTrack={!!track && track.count > 0}
                 geometry={geometry}
                 preview={preview}
+                statuses={statuses}
                 utcs={utcs}
                 scope={cameraScope}
                 loadError={loadError}

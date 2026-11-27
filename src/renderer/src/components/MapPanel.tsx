@@ -32,6 +32,8 @@ interface MapPanelProps {
   hasTrack: boolean
   geometry: TrackGeometry | null
   preview: PreviewState
+  /** One entry per photo from the preview: the legend, list and hover cards read it. */
+  statuses: Map<string, MatchStatus>
   /** Loading the track, its zones or the settings failed. */
   loadError: string | null
   onRetry: () => void
@@ -53,6 +55,7 @@ export function MapPanel({
   hasTrack,
   geometry,
   preview,
+  statuses,
   loadError,
   onRetry,
   utcs,
@@ -67,11 +70,6 @@ export function MapPanel({
   const [listOpen, setListOpen] = useState(true)
 
   const photoById = useMemo(() => new Map(library?.photos.map((p) => [p.id, p]) ?? []), [library])
-  const statuses = useMemo(
-    () => new Map(preview.snapshot?.results.map((r) => [r.id, r.status]) ?? []),
-    [preview.snapshot],
-  )
-
   const pins = useMemo(() => {
     const out: MapPin[] = []
     for (const r of preview.snapshot?.results ?? []) {
