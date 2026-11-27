@@ -1,6 +1,6 @@
 import { cp, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import type { ElectronApplication, Locator, Page } from '@playwright/test'
 import { launchApp } from './app'
 
@@ -49,7 +49,8 @@ export async function copyFixtures(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'steck-library-'))
   await cp(join(fixtures, 'cache'), join(dir, 'samples'), {
     recursive: true,
-    filter: (src) => !src.endsWith('.txt'),
+    // `cache/demo` holds `pnpm make-demo`'s downloads, not test fixtures.
+    filter: (src) => !src.endsWith('.txt') && basename(src) !== 'demo',
   })
   await cp(join(fixtures, 'generated/smoke.jpg'), join(dir, 'smoke.jpg'))
   return dir
