@@ -31,7 +31,8 @@
     "fixtures": "node scripts/fetch-fixtures.mjs",
     "make-fixtures": "node scripts/make-fixtures.mjs",
     "postinstall": "install-electron && electron-builder install-app-deps",
-    "make-pmtiles": "node scripts/make-pmtiles.mjs"
+    "make-pmtiles": "node scripts/make-pmtiles.mjs",
+    "check:design": "node scripts/check-design.mjs"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
