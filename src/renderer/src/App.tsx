@@ -88,6 +88,9 @@ export default function App(): React.JSX.Element {
   const [trackZones, setTrackZones] = useState<(string | null)[] | null>(null)
   const [settings, setSettings] = useState<SettingsView | null>(null)
   const [mapRevision, setMapRevision] = useState(0)
+  /** A failed load of the track, its zones or the settings; retried from the map. */
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
   const settingsKey = settings ? JSON.stringify([settings.matching, settings.writing]) : null
   const matchingKey = settings ? JSON.stringify(settings.matching) : null
   const defaultSettings = useMemo(() => defaultCameraSettings(localZone()), [])
@@ -124,38 +127,52 @@ export default function App(): React.JSX.Element {
   // Bridged stays depend on the matching settings too.
   // biome-ignore lint/correctness/useExhaustiveDependencies: matchingKey is a refetch trigger
   useEffect(() => {
-    if (!track) {
-      setGeometry(null)
-      return
-    }
+    // Never leave the previous track's geometry on the map while the new one loads.
+    setGeometry(null)
+    if (!track) return
     let current = true
-    void window.stecknadel.getTrackGeometry().then((g) => {
-      if (current) setGeometry(g)
-    })
+    window.stecknadel.getTrackGeometry().then(
+      (g) => {
+        if (current) setGeometry(g)
+      },
+      (error) => {
+        if (current) setLoadError(ipcErrorMessage(error))
+      },
+    )
     return () => {
       current = false
     }
-  }, [track, matchingKey])
+  }, [track, matchingKey, retryKey])
 
   useEffect(() => {
     setTrackZones(null)
     if (!track) return
     let current = true
-    void window.stecknadel.getTrackZones().then((zones) => {
-      if (current) setTrackZones(zones)
-    })
+    window.stecknadel.getTrackZones().then(
+      (zones) => {
+        if (current) setTrackZones(zones)
+      },
+      (error) => {
+        if (current) setLoadError(ipcErrorMessage(error))
+      },
+    )
     return () => {
       current = false
     }
-  }, [track])
+  }, [track, retryKey])
 
   useEffect(() => {
-    void window.stecknadel.getTrackState().then((state) => {
-      setTrack(state.track)
-      setDawarich(state.dawarich)
-    })
-    void window.stecknadel.getSettings().then(setSettings)
-  }, [])
+    window.stecknadel.getTrackState().then(
+      (state) => {
+        setTrack(state.track)
+        setDawarich(state.dawarich)
+      },
+      (error) => setLoadError(ipcErrorMessage(error)),
+    )
+    window.stecknadel
+      .getSettings()
+      .then(setSettings, (error) => setLoadError(ipcErrorMessage(error)))
+  }, [retryKey])
 
   useEffect(
     () =>
@@ -517,6 +534,11 @@ export default function App(): React.JSX.Element {
                 preview={preview}
                 utcs={utcs}
                 scope={cameraScope}
+                loadError={loadError}
+                onRetry={() => {
+                  setLoadError(null)
+                  setRetryKey((k) => k + 1)
+                }}
                 selectedId={selectedId}
                 onSelect={selectFromMap}
                 onApplyOffset={applyOffset}

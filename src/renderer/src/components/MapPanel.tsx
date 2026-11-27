@@ -32,6 +32,9 @@ interface MapPanelProps {
   hasTrack: boolean
   geometry: TrackGeometry | null
   preview: PreviewState
+  /** Loading the track, its zones or the settings failed. */
+  loadError: string | null
+  onRetry: () => void
   utcs: Map<string, PhotoUtc>
   /** Photos of the selected camera, or null for all cameras: the legend and Not placed list count only these. */
   scope: Set<string> | null
@@ -50,6 +53,8 @@ export function MapPanel({
   hasTrack,
   geometry,
   preview,
+  loadError,
+  onRetry,
   utcs,
   scope,
   selectedId,
@@ -86,12 +91,12 @@ export function MapPanel({
     return (preview.snapshot?.results ?? []).filter((r) => ids.has(r.id))
   }, [preview.snapshot, statuses, scope])
 
-  // A new selection starts from scratch.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on selection change only
+  // A new selection, or a track whose geometry changed under the suggestions, starts from scratch.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on these changes only
   useEffect(() => {
     setMode(null)
     setFinder(null)
-  }, [selectedId])
+  }, [selectedId, geometry])
 
   useEffect(() => {
     if (!mode && !finder) return
@@ -195,6 +200,18 @@ export function MapPanel({
                 Updating positions
               </>
             )}
+          </div>
+        )}
+        {loadError && (
+          <div
+            role="alert"
+            data-testid="load-error"
+            className="pointer-events-auto flex items-center gap-1.5 self-start rounded-full border border-destructive/40 bg-background/95 px-3 py-1 text-destructive text-xs shadow-sm"
+          >
+            {loadError}
+            <Button size="sm" variant="ghost" className="h-6 px-1.5" onClick={onRetry}>
+              Retry
+            </Button>
           </div>
         )}
         {selected && !empty && (
