@@ -70,6 +70,18 @@ test('opens a folder, lists cameras, shows thumbnails and read-only metadata', a
       page.getByRole('complementary', { name: 'Metadata' }).locator('input'),
     ).toHaveCount(1)
 
+    // Clicking the grid's empty area, or Escape, clears the selection.
+    const grid = page.getByTestId('photo-grid')
+    const box = await grid.boundingBox()
+    if (!box) throw new Error('grid not laid out')
+    await page.mouse.click(box.x + box.width - 40, box.y + box.height - 40)
+    await expect(tiles.first()).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByText('Select a photo to see its metadata')).toBeVisible()
+    await tiles.first().click()
+    await expect(tiles.first()).toHaveAttribute('aria-pressed', 'true')
+    await page.keyboard.press('Escape')
+    await expect(tiles.first()).toHaveAttribute('aria-pressed', 'false')
+
     await sony.hover()
     await sony.getByRole('button', { name: /^Rename/ }).click()
     await page.getByRole('textbox', { name: /^Name for/ }).fill('Travel Sony')

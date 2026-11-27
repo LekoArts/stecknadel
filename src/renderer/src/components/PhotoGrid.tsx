@@ -23,7 +23,8 @@ interface PhotoGridProps {
   /** Hide the camera line when the grid is already filtered to one camera. */
   showCamera: boolean
   selectedId: string | null
-  onSelect: (id: string) => void
+  /** null clears the selection. */
+  onSelect: (id: string | null) => void
 }
 
 export function PhotoGrid({
@@ -62,10 +63,18 @@ export function PhotoGrid({
   }, [selectedId, photos, columns, virtualizer])
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: a background click-to-deselect; Escape is the keyboard path, the tiles are the controls
     <div
       ref={scrollRef}
       data-testid="photo-grid"
       className="h-full overflow-y-auto px-3 py-2 [scrollbar-gutter:stable]"
+      // Clicking between or beside the tiles, or Escape, clears the selection.
+      onClick={(e) => {
+        if (!(e.target as HTMLElement).closest('[data-testid="photo-tile"]')) onSelect(null)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && selectedId) onSelect(null)
+      }}
     >
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((row) => (
