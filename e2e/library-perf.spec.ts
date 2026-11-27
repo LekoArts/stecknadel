@@ -37,7 +37,9 @@ async function generate(dir: string): Promise<void> {
   }
 }
 
-test('5,000 JPEGs load in under 60 s and the grid scrolls at p95 < 33 ms per frame', async () => {
+test('5,000 JPEGs load in under 60 s and the grid scrolls at p95 < 33 ms per frame', {
+  tag: '@perf',
+}, async () => {
   test.setTimeout(300_000)
   const folder = await mkdtemp(join(tmpdir(), 'steck-perf-'))
   await generate(folder)

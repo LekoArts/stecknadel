@@ -79,7 +79,9 @@ const setZone = async (page: Page, camera: string, zone: string): Promise<void> 
   await pickZone(page.getByTestId('camera-time'), 'Time zone from the first photo', zone)
 }
 
-test('preview: 5,000 stubs against a 2,708-point track; full run and one-camera recompute', async () => {
+test('preview: 5,000 stubs against a 2,708-point track; full run and one-camera recompute', {
+  tag: '@perf',
+}, async () => {
   test.setTimeout(600_000)
   const folder = await mkdtemp(join(tmpdir(), 'steck-preview-perf-'))
   const gpx = join(folder, 'track.gpx')

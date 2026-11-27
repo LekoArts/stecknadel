@@ -21,6 +21,16 @@ runs:
         node-version: ${{ inputs.node-version }}
         check-latest: true
         cache: pnpm
+    # Electron's postinstall downloads a ~100 MB binary that the pnpm store cache doesn't hold.
+    - name: Cache Electron download
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cache/electron
+          ~/Library/Caches/electron
+          ~/AppData/Local/electron/Cache
+        key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: electron-${{ runner.os }}-
     - name: Install dependencies
       shell: bash
       run: pnpm install --frozen-lockfile --prefer-offline

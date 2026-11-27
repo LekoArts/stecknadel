@@ -29,12 +29,15 @@ jobs:
         run: pnpm test
 
   e2e:
-    name: E2E (${{ matrix.os }})
+    # The 5,000-photo benchmarks take as long as everything else together: their own job runs
+    # them alongside the rest.
+    name: ${{ matrix.suite == 'perf' && 'Perf' || 'E2E' }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
+        suite: [e2e, perf]
     defaults:
       run:
         shell: bash
@@ -52,6 +55,7 @@ jobs:
             pnpm exec electron-builder --win --x64 --dir --publish never
           fi
       - name: Packaged smoke (bundled ExifTool)
+        if: matrix.suite == 'e2e'
         run: |
           if [ "$RUNNER_OS" = "macOS" ]; then
             APP="dist/mac-arm64/Stecknadel.app/Contents/MacOS/Stecknadel"
@@ -63,14 +67,20 @@ jobs:
           grep STECKNADEL_SMOKE smoke.log || { cat smoke.log; exit 1; }
           grep -q "^STECKNADEL_SMOKE ok " smoke.log
       - name: Native ExifTool tests
+        if: matrix.suite == 'e2e'
         run: pnpm test:native
       - name: Playwright (packaged app)
-        run: pnpm exec playwright test --project=packaged-dir
+        run: |
+          if [ "${{ matrix.suite }}" = "perf" ]; then
+            pnpm exec playwright test --project=packaged-dir --grep @perf
+          else
+            pnpm exec playwright test --project=packaged-dir --grep-invert @perf
+          fi
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-${{ matrix.os }}
+          name: playwright-${{ matrix.suite }}-${{ matrix.os }}
           path: |
             playwright-report/
             test-results/
