@@ -79,6 +79,20 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
     await expect(photos).toBeVisible()
     await expect(metadata).toHaveCount(0)
 
+    // Dragging a panel shut leaves focus on its toggle, not lost on the page.
+    await cameras.getByRole('button', { name: /^All photos/ }).focus()
+    const cameraSeparator = await separators.first().boundingBox()
+    if (!cameraSeparator) throw new Error('no separator')
+    await page.mouse.move(cameraSeparator.x + 2, cameraSeparator.y + 100)
+    await page.mouse.down()
+    await page.mouse.move(cameraSeparator.x - 400, cameraSeparator.y + 100, { steps: 10 })
+    await page.mouse.up()
+    await expect(cameras).toBeHidden()
+    await expect(toggles.getByRole('button', { name: 'Cameras' })).toBeFocused()
+    await panelCommand(first.app, 'cameras')
+    await expect(cameras).toBeVisible()
+    expect(Math.abs((await width(page, 'Cameras')) - grown)).toBeLessThan(3)
+
     // Dragging the photos separator far down snaps the panel shut.
     const photoSeparator = separators.nth(1)
     const box = await photoSeparator.boundingBox()
@@ -107,6 +121,131 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
     await first.close().catch(() => {})
     await rm(first.userData, { recursive: true, force: true })
     await rm(folder, { recursive: true, force: true })
+  }
+})
+
+test('Cmd/Ctrl+1/3/0 key presses toggle the panels; nothing else in the menu claims them', async () => {
+  const { app, page, close } = await launchWithProfile()
+  try {
+    // Native input events: they take the same route through main as a real key press.
+    const press = (key: string) =>
+      app.evaluate(({ BrowserWindow }, keyCode) => {
+        const modifiers: ('meta' | 'control')[] = [
+          process.platform === 'darwin' ? 'meta' : 'control',
+        ]
+        const { webContents } = BrowserWindow.getAllWindows()[0]
+        webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+        webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+      }, key)
+    const cameras = page.getByRole('complementary', { name: 'Cameras' })
+    const metadata = page.getByRole('complementary', { name: 'Metadata' })
+    await expect(metadata).toBeVisible()
+    await press('3')
+    await expect(metadata).toHaveCount(0)
+    await press('3')
+    await expect(metadata).toBeVisible()
+    await press('1')
+    await expect(cameras).toBeHidden()
+    await press('1')
+    await expect(cameras).toBeVisible()
+    await press('0')
+    await expect(cameras).toBeHidden()
+    await expect(metadata).toHaveCount(0)
+    await press('0')
+    await expect(cameras).toBeVisible()
+    await expect(metadata).toBeVisible()
+    // Two quick presses, no waiting between: back where it started.
+    await press('1')
+    await press('1')
+    await expect(cameras).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Cameras', pressed: true })).toBeVisible()
+
+    const claimed = await app.evaluate(({ Menu }) => {
+      const out: { id: string; accelerator: string }[] = []
+      const walk = (menu: Electron.Menu): void => {
+        for (const item of menu.items) {
+          if (item.accelerator) out.push({ id: item.id, accelerator: item.accelerator })
+          if (item.submenu) walk(item.submenu)
+        }
+      }
+      const menu = Menu.getApplicationMenu()
+      if (menu) walk(menu)
+      return out
+    })
+    for (const key of ['1', '2', '3', '0']) {
+      const owners = claimed.filter((a) => a.accelerator === `CmdOrCtrl+${key}`)
+      expect(owners.map((a) => a.id)).toEqual([expect.stringMatching(/^panel-/)])
+    }
+  } finally {
+    await close()
+  }
+})
+
+test('selecting an off-screen photo scrolls its list row into view below the header', async () => {
+  const exiftool = new ExifTool()
+  const dir = await mkdtemp(join(tmpdir(), 'steck-long-list-'))
+  for (let i = 1; i <= 30; i++) {
+    const file = join(dir, `p${String(i).padStart(2, '0')}.jpg`)
+    await copyFile(join(fixtures, 'base.jpg'), file)
+    // After the synthetic track ends, so every photo is in the map's "Not placed" list.
+    await exiftool.write(
+      file,
+      {
+        Make: 'E2E',
+        Model: 'Camera A',
+        SerialNumber: 'A',
+        DateTimeOriginal: '2026:06:05 12:00:00',
+      },
+      { writeArgs: ['-overwrite_original'] },
+    )
+  }
+  await exiftool.end()
+  const { app, page, close } = await launchWithProfile()
+  try {
+    await openFolder(app, page, dir)
+    await app.evaluate(
+      ({ dialog }, chosen) => {
+        dialog.showOpenDialog = (async () => ({
+          canceled: false,
+          filePaths: [chosen],
+        })) as unknown as typeof dialog.showOpenDialog
+      },
+      join(fixtures, 'synthetic-trip.gpx'),
+    )
+    await page.getByRole('button', { name: 'Open GPX file' }).click()
+    await expect(page.getByTestId('not-placed').getByRole('button').first()).toContainText('30')
+    await page
+      .getByRole('group', { name: 'Photo view' })
+      .getByRole('button', { name: 'List' })
+      .click()
+    await page.getByRole('columnheader', { name: 'Name' }).getByRole('button').click()
+
+    const list = page.getByTestId('photo-list')
+    const header = page.getByRole('row').first()
+    const notPlaced = page.getByTestId('not-placed')
+    const fullyVisible = async (name: string): Promise<boolean> => {
+      const row = page.getByTestId('photo-row').filter({ hasText: name })
+      if ((await row.count()) === 0) return false
+      const [r, h, l] = await Promise.all([
+        row.boundingBox(),
+        header.boundingBox(),
+        list.boundingBox(),
+      ])
+      if (!r || !h || !l) return false
+      return r.y >= h.y + h.height - 1 && r.y + r.height <= l.y + l.height + 1
+    }
+
+    // Below the viewport.
+    expect(await fullyVisible('p30.jpg')).toBe(false)
+    await notPlaced.getByRole('button', { name: /p30\.jpg/ }).click()
+    await expect.poll(() => fullyVisible('p30.jpg')).toBe(true)
+    // Above it: must land below the sticky header, not under it.
+    expect(await fullyVisible('p02.jpg')).toBe(false)
+    await notPlaced.getByRole('button', { name: /p02\.jpg/ }).click()
+    await expect.poll(() => fullyVisible('p02.jpg')).toBe(true)
+  } finally {
+    await close()
+    await rm(dir, { recursive: true, force: true })
   }
 })
 
