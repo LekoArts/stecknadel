@@ -11,7 +11,8 @@ import { TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 const TILE_WIDTH = 184
-const TILE_HEIGHT = 196
+// 120 thumbnail + up to four 16px text lines, their gaps, padding and border.
+const TILE_HEIGHT = 210
 const GAP = 8
 
 interface PhotoGridProps {
@@ -131,7 +132,7 @@ function PhotoTile({
       style={{ width: TILE_WIDTH, height: TILE_HEIGHT }}
     >
       <Thumbnail photo={photo} status={status} />
-      <div className="flex min-w-0 flex-col gap-0.5 px-2 py-1.5 text-xs">
+      <div className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5 text-xs">
         <span
           className="truncate font-medium"
           title={photo.relDir ? `${photo.relDir}/${photo.name}` : photo.name}
