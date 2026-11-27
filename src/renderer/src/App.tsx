@@ -9,6 +9,8 @@ import { MapPanel } from '@renderer/components/MapPanel'
 import { MetadataPanel } from '@renderer/components/MetadataPanel'
 import { PanelToggles } from '@renderer/components/PanelToggles'
 import { PhotoGrid } from '@renderer/components/PhotoGrid'
+import { PhotoList } from '@renderer/components/PhotoList'
+import { PhotosToolbar, type PhotoView } from '@renderer/components/PhotosToolbar'
 import { SettingsDialog } from '@renderer/components/SettingsDialog'
 import { TrackPanel } from '@renderer/components/TrackPanel'
 import { Button } from '@renderer/components/ui/button'
@@ -19,11 +21,19 @@ import {
 } from '@renderer/components/ui/resizable'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
 import { PANEL_DEFAULT, PANEL_MIN, usePanels } from '@renderer/lib/panels'
+import {
+  inGroup,
+  type Sort,
+  STATUS_GROUPS,
+  type StatusGroup,
+  sortPhotos,
+} from '@renderer/lib/photoFilter'
 import { usePreview } from '@renderer/lib/preview'
 import { clearThumbnailCache } from '@renderer/lib/thumbnails'
 import { localZone, offsetLabel, tzLabel } from '@renderer/lib/time'
 import type { DawarichState } from '@shared/ipc'
 import type { LibraryProgress, LibrarySnapshot, PhotoSummary } from '@shared/library'
+import { STATUS_LABELS } from '@shared/match/status'
 import type { Position, TrackGeometry } from '@shared/preview'
 import type { SettingsView } from '@shared/settings'
 import { applyOffsetCandidate } from '@shared/time/applyOffset'
@@ -50,6 +60,7 @@ import { useDefaultLayout } from 'react-resizable-panels'
 /** The map and its overlays need this much room; it never collapses, so the panel toggles stay reachable. */
 const CENTER_MIN_WIDTH = 360
 const MAP_MIN_HEIGHT = 200
+const VIEW_KEY = 'stecknadel.photoView.v1'
 
 type Load =
   | { status: 'idle' }
@@ -60,6 +71,11 @@ export default function App(): React.JSX.Element {
   const [library, setLibrary] = useState<LibrarySnapshot | null>(null)
   const [load, setLoad] = useState<Load>({ status: 'idle' })
   const [cameraFilter, setCameraFilter] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<StatusGroup | null>(null)
+  const [view, setView] = useState<PhotoView>(() =>
+    localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid',
+  )
+  const [sort, setSort] = useState<Sort | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [track, setTrack] = useState<TrackSummary | null>(null)
   const [dawarich, setDawarich] = useState<DawarichState | null>(null)
@@ -160,6 +176,7 @@ export default function App(): React.JSX.Element {
         setLibrary(snapshot)
         setManual({})
         setCameraFilter(null)
+        setStatusFilter(null)
         setSelectedId(null)
       }
       setLoad({ status: 'idle' })
@@ -177,7 +194,7 @@ export default function App(): React.JSX.Element {
     () => new Map(library?.cameras.map((c) => [c.key, c.name]) ?? []),
     [library],
   )
-  const photos = useMemo(
+  const cameraPhotos = useMemo(
     () =>
       library?.photos.filter((p) => cameraFilter === null || p.cameraKey === cameraFilter) ?? [],
     [library, cameraFilter],
@@ -267,6 +284,42 @@ export default function App(): React.JSX.Element {
     () => new Map(preview.snapshot?.results.map((r) => [r.id, r.status]) ?? []),
     [preview.snapshot],
   )
+  const groupCounts = useMemo(() => {
+    if (!preview.snapshot) return null
+    const counts: Record<StatusGroup, number> = { attention: 0, placed: 0, 'has-gps': 0 }
+    for (const p of cameraPhotos) {
+      for (const g of STATUS_GROUPS) {
+        if (inGroup(g, statuses.get(p.id), utcs.get(p.id))) counts[g]++
+      }
+    }
+    return counts
+  }, [preview.snapshot, cameraPhotos, statuses, utcs])
+  // Without a preview there are no statuses to filter by.
+  const activeStatusFilter = groupCounts ? statusFilter : null
+  const photos = useMemo(() => {
+    const filtered =
+      activeStatusFilter === null
+        ? cameraPhotos
+        : cameraPhotos.filter((p) =>
+            inGroup(activeStatusFilter, statuses.get(p.id), utcs.get(p.id)),
+          )
+    return view === 'list'
+      ? sortPhotos(filtered, sort, {
+          cameraNames,
+          utcs,
+          statuses,
+          statusLabel: (s) => STATUS_LABELS[s.kind],
+        })
+      : filtered
+  }, [cameraPhotos, activeStatusFilter, statuses, utcs, view, sort, cameraNames])
+
+  /** Selecting from the map: a status filter that hides the photo gets out of the way. */
+  const selectFromMap = (id: string | null): void => {
+    if (id && activeStatusFilter && !inGroup(activeStatusFilter, statuses.get(id), utcs.get(id))) {
+      setStatusFilter(null)
+    }
+    setSelectedId(id)
+  }
 
   const applyOffset = (photo: PhotoSummary, candidate: OffsetCandidate): void => {
     const time = utcs.get(photo.id)
@@ -453,7 +506,7 @@ export default function App(): React.JSX.Element {
                 preview={preview}
                 utcs={utcs}
                 selectedId={selectedId}
-                onSelect={setSelectedId}
+                onSelect={selectFromMap}
                 onApplyOffset={applyOffset}
                 onManual={setPlacement}
               />
@@ -518,17 +571,61 @@ export default function App(): React.JSX.Element {
                     No JPEG, HEIC or RAW photos in {library.folderName}.
                   </p>
                 ) : (
-                  <div className="min-h-0 flex-1">
-                    <PhotoGrid
-                      photos={photos}
-                      cameraNames={cameraNames}
-                      utcs={utcs}
-                      statuses={statuses}
-                      showCamera={cameraFilter === null && library.cameras.length > 1}
-                      selectedId={selectedId}
-                      onSelect={setSelectedId}
+                  <>
+                    <PhotosToolbar
+                      view={view}
+                      onView={(next) => {
+                        setView(next)
+                        localStorage.setItem(VIEW_KEY, next)
+                      }}
+                      cameras={library.cameras}
+                      cameraFilter={cameraFilter}
+                      onCameraFilter={setCameraFilter}
+                      groupCounts={groupCounts}
+                      total={cameraPhotos.length}
+                      statusFilter={activeStatusFilter}
+                      onStatusFilter={setStatusFilter}
                     />
-                  </div>
+                    <div className="min-h-0 flex-1">
+                      {photos.length === 0 ? (
+                        <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <p>No photos match</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setStatusFilter(null)
+                              setCameraFilter(null)
+                            }}
+                          >
+                            Clear filters
+                          </Button>
+                        </div>
+                      ) : view === 'list' ? (
+                        <PhotoList
+                          photos={photos}
+                          cameraNames={cameraNames}
+                          utcs={utcs}
+                          statuses={statuses}
+                          showCamera={cameraFilter === null && library.cameras.length > 1}
+                          sort={sort}
+                          onSort={setSort}
+                          selectedId={selectedId}
+                          onSelect={setSelectedId}
+                        />
+                      ) : (
+                        <PhotoGrid
+                          photos={photos}
+                          cameraNames={cameraNames}
+                          utcs={utcs}
+                          statuses={statuses}
+                          showCamera={cameraFilter === null && library.cameras.length > 1}
+                          selectedId={selectedId}
+                          onSelect={setSelectedId}
+                        />
+                      )}
+                    </div>
+                  </>
                 )}
               </section>
             )}

@@ -211,7 +211,7 @@ const WARNING_TEXT = {
   'offset-conflict': 'The recorded offset differs from the camera setting',
 } as const
 
-function UtcLine({ time }: { time: PhotoUtc | undefined }): React.JSX.Element {
+export function UtcLine({ time }: { time: PhotoUtc | undefined }): React.JSX.Element {
   if (!time?.utc) return <span className="truncate text-muted-foreground">UTC —</span>
   const warning = time.warnings.map((w) => WARNING_TEXT[w]).join('. ')
   return (
