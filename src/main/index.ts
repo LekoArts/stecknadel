@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { DEBUG_PREVIEW_CHANNEL, ipcEventChannel } from '@shared/ipc'
+import { DEBUG_PREVIEW_CHANNEL, ipcEventChannel, type PanelCommand } from '@shared/ipc'
 import {
   app,
   BrowserWindow,
@@ -20,7 +20,7 @@ import { exiftool } from './exiftool'
 import { createHandlers } from './handlers'
 import { registerIpc } from './ipc'
 import { Library } from './library/library'
-import { installMenu } from './menu'
+import { installMenu, panelShortcut } from './menu'
 import { PMTILES_SCHEME, servePmtiles } from './pmtilesProtocol'
 import { PreviewEngine } from './preview'
 import { Secrets } from './secrets'
@@ -77,6 +77,12 @@ function isAppUrl(url: string): boolean {
   return url.split('#')[0] === pathToFileURL(rendererIndex).href
 }
 
+function sendPanel(command: PanelCommand): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(ipcEventChannel('panel'), command)
+  }
+}
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1400,
@@ -104,6 +110,13 @@ function createWindow(): void {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) void shell.openExternal(url)
     return { action: 'deny' }
+  })
+  win.webContents.on('before-input-event', (event, input) => {
+    const command = panelShortcut(input)
+    if (command) {
+      event.preventDefault()
+      if (!input.isAutoRepeat) sendPanel(command)
+    }
   })
   win.webContents.on('will-navigate', (event, url) => {
     if (!isAppUrl(url)) event.preventDefault()
@@ -235,11 +248,7 @@ app.whenReady().then(async () => {
     isAppUrl,
   )
 
-  installMenu((command) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(ipcEventChannel('panel'), command)
-    }
-  })
+  installMenu(sendPanel)
   createWindow()
 
   app.on('activate', () => {

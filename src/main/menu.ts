@@ -8,9 +8,18 @@ const PANEL_ITEMS: { id: PanelCommand; label: string; accelerator: string }[] = 
   { id: 'map-only', label: 'Map Only', accelerator: 'CmdOrCtrl+0' },
 ]
 
+/** The panel command a key press asks for, if any. Held keys repeat: the caller swallows those. */
+export function panelShortcut(input: Electron.Input): PanelCommand | null {
+  if (input.type !== 'keyDown' || input.isComposing || input.alt || input.shift) return null
+  const mod = process.platform === 'darwin' ? input.meta && !input.control : input.control
+  if (!mod) return null
+  return PANEL_ITEMS.find((item) => item.accelerator.endsWith(`+${input.key}`))?.id ?? null
+}
+
 /**
- * The app menu. Panel shortcuts live here, not in the page: a menu accelerator wins over the
- * page's keydown, and the default menu's Cmd/Ctrl+0 (reset zoom) would take Map Only.
+ * The app menu. Main handles the panel keys before the page sees them (see panelShortcut);
+ * preventing that input also keeps the menu from acting on it, so the menu only shows the keys.
+ * The default menu's Cmd/Ctrl+0 (reset zoom) moves to Shift+0.
  */
 export function installMenu(onPanel: (command: PanelCommand) => void): void {
   const isMac = process.platform === 'darwin'
@@ -26,6 +35,7 @@ export function installMenu(onPanel: (command: PanelCommand) => void): void {
             id: `panel-${item.id}`,
             label: item.label,
             accelerator: item.accelerator,
+            registerAccelerator: false,
             click: () => onPanel(item.id),
           }),
         ),
