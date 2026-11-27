@@ -1,0 +1,48 @@
+appId: com.lekoarts.stecknadel
+productName: Stecknadel
+directories:
+  buildResources: build
+files:
+  - "!**/.vscode/*"
+  - "!src/*"
+  - "!e2e/*"
+  - "!test/*"
+  - "!scripts/*"
+  - "!docs/*"
+  - "!electron.vite.config.{js,ts,mjs,cjs}"
+  - "!{dev-app-update.yml,CHANGELOG.md,README.md,biome.json,components.json,vitest.config.ts,playwright.config.ts}"
+  - "!{.env,.env.*,.npmrc,pnpm-lock.yaml,pnpm-workspace.yaml}"
+  - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
+asarUnpack:
+  - resources/**
+  - node_modules/exiftool-vendored.*/**/*
+win:
+  executableName: Stecknadel
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  oneClick: true
+  perMachine: false
+  artifactName: ${productName}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: false
+dmg:
+  artifactName: ${productName}-${version}.${ext}
+npmRebuild: false
+publish:
+  provider: github
+  owner: LekoArts
+  repo: stecknadel
+  releaseType: release

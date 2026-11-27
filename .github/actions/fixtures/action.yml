@@ -1,0 +1,18 @@
+name: Test fixtures
+description: Restore/download the pinned test fixtures and generate the synthetic photos
+
+runs:
+  using: composite
+
+  steps:
+    - name: Cache downloaded fixtures
+      uses: actions/cache@v6
+      with:
+        path: test/fixtures/cache
+        key: fixtures-${{ hashFiles('test/fixtures/fixtures.lock.json') }}
+    - name: Fetch fixtures
+      shell: bash
+      run: pnpm fixtures
+    - name: Generate fixtures
+      shell: bash
+      run: pnpm make-fixtures

@@ -1,0 +1,71 @@
+{
+  "//": "CC0 RAW samples (raw.pixls.us via revelraw v1) and ExifTool test images (GPL/Artistic, pinned commit). Download-only, never committed.",
+  "files": [
+    {
+      "name": "Sony-a7III.ARW",
+      "url": "https://github.com/tellodaniel/revelraw-sample-raw-files/releases/download/v1/Sony-a7III.ARW",
+      "sha256": "250784580ea527442c09004417bb0eead484f2bf3ee8f9121a776ac65bb50d0f",
+      "size": 25639680
+    },
+    {
+      "name": "Canon-EOS-R.CR3",
+      "url": "https://github.com/tellodaniel/revelraw-sample-raw-files/releases/download/v1/Canon-EOS-R.CR3",
+      "sha256": "cfd118af4477ef37538eb953421572a7a5c80694e59764049223107cc0c9ae83",
+      "size": 29045112
+    },
+    {
+      "name": "Nikon-Z6.NEF",
+      "url": "https://github.com/tellodaniel/revelraw-sample-raw-files/releases/download/v1/Nikon-Z6.NEF",
+      "sha256": "8ca94584578b35a422744c1a610174ce37df0691588edfdecaec3111b3fbbb02",
+      "size": 25994889
+    },
+    {
+      "name": "Fujifilm-X-T4.RAF",
+      "url": "https://github.com/tellodaniel/revelraw-sample-raw-files/releases/download/v1/Fujifilm-X-T4.RAF",
+      "sha256": "871836938ffa695f4c41765ddb107c2703ce755f7f3ced7e10f9e04746f1734e",
+      "size": 26971008
+    },
+    {
+      "name": "Ricoh-GR-III.DNG",
+      "url": "https://github.com/tellodaniel/revelraw-sample-raw-files/releases/download/v1/Ricoh-GR-III.DNG",
+      "sha256": "05513ee72f7cac4165534c9f64995412084f414a033c80c473c79fd94154292e",
+      "size": 33374940
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "url": "https://github.com/tellodaniel/revelraw-sample-raw-files/releases/download/v1/SHA256SUMS.txt",
+      "sha256": "9f0ba538a223c1a9bfb2022ddeab489f152251006c94df72d951f0c15d4ce8e8",
+      "size": 1180
+    },
+    {
+      "name": "exiftool-CanonRaw.cr3",
+      "url": "https://raw.githubusercontent.com/exiftool/exiftool/3d7a0538324e9b04aa8930201b007009491321d2/t/images/CanonRaw.cr3",
+      "sha256": "dc02aa55e277935b690879584e97c2d013f54d854afaec6f9d3274c99a918fd6",
+      "size": 52502
+    },
+    {
+      "name": "exiftool-Nikon.nef",
+      "url": "https://raw.githubusercontent.com/exiftool/exiftool/3d7a0538324e9b04aa8930201b007009491321d2/t/images/Nikon.nef",
+      "sha256": "6fae30a2809b52ece100316f33a3fade4b65cf5690af2d62bb00f44ae052bdd6",
+      "size": 6188
+    },
+    {
+      "name": "exiftool-FujiFilm.raf",
+      "url": "https://raw.githubusercontent.com/exiftool/exiftool/3d7a0538324e9b04aa8930201b007009491321d2/t/images/FujiFilm.raf",
+      "sha256": "e12e30bd0cf5f160b82b93f043696c04d1d5f4628f1fdd19abdab9f8328d8bf0",
+      "size": 38452
+    },
+    {
+      "name": "exiftool-DNG.dng",
+      "url": "https://raw.githubusercontent.com/exiftool/exiftool/3d7a0538324e9b04aa8930201b007009491321d2/t/images/DNG.dng",
+      "sha256": "daa9ce7a2c6923815390d8566254ef4d4a75d68d1531afdb264bd4b39a8dfd89",
+      "size": 13662
+    },
+    {
+      "name": "exiftool-QuickTime.heic",
+      "url": "https://raw.githubusercontent.com/exiftool/exiftool/3d7a0538324e9b04aa8930201b007009491321d2/t/images/QuickTime.heic",
+      "sha256": "4e1785e9924600d0274176f52609a2d514481877103b91c714bd2088ea803ae7",
+      "size": 623
+    }
+  ]
+}

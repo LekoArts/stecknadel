@@ -1,0 +1,26 @@
+name: PNPM install
+description: Run pnpm install with cache enabled
+
+inputs:
+  node-version:
+    description: Node version to use
+    required: false
+    default: "24"
+
+runs:
+  using: composite
+
+  steps:
+    - name: Install pnpm
+      uses: pnpm/action-setup@v6
+      with:
+        run_install: false
+    - name: Install Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version }}
+        check-latest: true
+        cache: pnpm
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile --prefer-offline

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Stecknadel</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f1e8"/>
+      <stop offset="1" stop-color="#e2dccb"/>
+    </linearGradient>
+    <radialGradient id="head" cx="0.36" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#ff8a7a"/>
+      <stop offset="0.45" stop-color="#e5352b"/>
+      <stop offset="1" stop-color="#9e1a14"/>
+    </radialGradient>
+    <linearGradient id="needle" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8d949c"/>
+      <stop offset="0.5" stop-color="#e9edf1"/>
+      <stop offset="1" stop-color="#6f767e"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <path d="M190 700 C 300 610, 380 760, 500 690 S 700 560, 840 620" fill="none" stroke="#3b82c4" stroke-width="26" stroke-linecap="round" stroke-dasharray="2 52" opacity="0.9"/>
+  <ellipse cx="512" cy="742" rx="70" ry="22" fill="#000" opacity="0.18"/>
+  <g transform="rotate(-18 512 742)">
+    <path d="M500 420 L524 420 L516 740 L508 740 Z" fill="url(#needle)"/>
+    <circle cx="512" cy="360" r="150" fill="url(#head)"/>
+    <ellipse cx="462" cy="300" rx="52" ry="34" fill="#fff" opacity="0.45" transform="rotate(-30 462 300)"/>
+  </g>
+</svg>

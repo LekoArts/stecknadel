@@ -1,0 +1,21 @@
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
+  "include": [
+    "electron.vite.config.*",
+    "vitest.config.*",
+    "playwright.config.*",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*",
+    "scripts/**/*.ts",
+    "test/**/*.ts",
+    "e2e/**/*.ts"
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "types": ["electron-vite/node"],
+    "paths": {
+      "@shared/*": ["./src/shared/*"]
+    }
+  }
+}

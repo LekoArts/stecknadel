@@ -1,0 +1,19 @@
+node_modules
+dist
+out
+.DS_Store
+*.log*
+
+# test outputs
+test-results/
+playwright-report/
+test/fixtures/cache/
+test/fixtures/generated/
+
+# real-data specs and tests (never committed: the repo is public)
+e2e/local/
+test/live/
+*.local.*
+
+# local planning / proof files
+.mastracode/

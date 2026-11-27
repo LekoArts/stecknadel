@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/pnpm-install
+      - uses: ./.github/actions/fixtures
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Unit tests
+        run: pnpm test
+
+  e2e:
+    name: E2E (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/pnpm-install
+      - uses: ./.github/actions/fixtures
+      - name: Build
+        run: pnpm build
+      - name: Package (unpacked dir)
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            pnpm package:mac:dir
+          else
+            pnpm exec electron-builder --win --x64 --dir --publish never
+          fi
+      - name: Packaged smoke (bundled ExifTool)
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            APP="dist/mac-arm64/Stecknadel.app/Contents/MacOS/Stecknadel"
+          else
+            APP="dist/win-unpacked/Stecknadel.exe"
+          fi
+          cp test/fixtures/generated/smoke.jpg "$RUNNER_TEMP/steck-smoke.jpg"
+          STECKNADEL_SMOKE_FILE="$RUNNER_TEMP/steck-smoke.jpg" "$APP" > smoke.log 2>&1 || true
+          grep STECKNADEL_SMOKE smoke.log || { cat smoke.log; exit 1; }
+          grep -q "^STECKNADEL_SMOKE ok " smoke.log
+      - name: Native ExifTool tests
+        run: pnpm test:native
+      - name: Playwright (packaged app)
+        run: pnpm exec playwright test --project=packaged-dir
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-${{ matrix.os }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
