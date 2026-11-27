@@ -1,5 +1,3 @@
-What the app is and its stack: README.md.
-
 Iterate with `pnpm typecheck`, `pnpm lint` and the Vitest files for the changed code (`pnpm exec vitest run <files>`); the user tries changes in `pnpm dev`. Commit each fix on its own; push a batch, not each fix.
 Before pushing to `main` or opening a PR, run `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:native`, `pnpm test:e2e`, then a review. After pushing, share the CI run link and don't wait; check it before the next push.
 
