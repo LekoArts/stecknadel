@@ -45,6 +45,30 @@ function readRestore(): PanelId[] {
   return ids.length ? ids : PANEL_IDS
 }
 
+// A panel dragged shut takes the separator's focus with it when the drag ends; this hands focus
+// to the panel's toggle then, if the panel is still shut and focus went nowhere.
+let pointerDown = false
+let afterDrag: (() => void) | null = null
+addEventListener(
+  'pointerdown',
+  () => {
+    pointerDown = true
+  },
+  true,
+)
+addEventListener('pointerup', () => {
+  pointerDown = false
+  const run = afterDrag
+  afterDrag = null
+  if (run) requestAnimationFrame(run)
+})
+for (const type of ['pointercancel', 'blur'] as const) {
+  addEventListener(type, () => {
+    pointerDown = false
+    afterDrag = null
+  })
+}
+
 /** Moves focus out of a panel that is closing, to its toggle. */
 function rescueFocus(id: PanelId, toggle: HTMLButtonElement | null): void {
   const content = document.querySelector(`[data-panel="${id}"]`)
@@ -83,15 +107,23 @@ export function usePanels(): Panels {
     photos: true,
     metadata: true,
   })
-  const openRef = useRef(open)
-  openRef.current = open
 
   const onResize =
     (id: PanelId) =>
     (size: PanelSize): void => {
       const isOpen = size.inPixels > 0
-      // Collapsed by dragging: same focus rule as the toggle.
-      if (!isOpen) rescueFocus(id, toggleRefs[id].current)
+      if (isOpen) afterDrag = null
+      else {
+        rescueFocus(id, toggleRefs[id].current)
+        if (pointerDown) {
+          afterDrag = () => {
+            const panel = refs[id].current
+            if (panel?.isCollapsed() && document.activeElement === document.body) {
+              toggleRefs[id].current?.focus()
+            }
+          }
+        }
+      }
       setOpen((current) => (current[id] === isOpen ? current : { ...current, [id]: isOpen }))
     }
 
@@ -119,10 +151,12 @@ export function usePanels(): Panels {
     panel.collapse()
   }
 
-  const toggle = (id: PanelId): void => (openRef.current[id] ? hide(id) : show(id))
+  // The panel's own state: React's copy lags a render behind a quick second press.
+  const isOpen = (id: PanelId): boolean => refs[id].current?.isCollapsed() === false
+  const toggle = (id: PanelId): void => (isOpen(id) ? hide(id) : show(id))
 
   const toggleMapOnly = (): void => {
-    const visible = PANEL_IDS.filter((id) => openRef.current[id])
+    const visible = PANEL_IDS.filter(isOpen)
     if (visible.length > 0) {
       localStorage.setItem(HIDDEN_KEY, JSON.stringify(visible))
       for (const id of visible) hide(id)
