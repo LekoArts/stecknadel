@@ -180,7 +180,12 @@ describe('PreviewEngine', () => {
     get track() {
       return track
     },
-    options: { limits: DEFAULT_LIMITS, bridge: DEFAULT_BRIDGE, overwriteGps: false },
+    options: {
+      limits: DEFAULT_LIMITS,
+      bridge: DEFAULT_BRIDGE,
+      overwriteGps: false,
+      rawTarget: 'in-file' as const,
+    },
   }
 
   it('classifies and positions every photo from ExifTool', async () => {

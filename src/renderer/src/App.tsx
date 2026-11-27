@@ -3,6 +3,7 @@ import { CameraTimePanel, type CameraTimeStats } from '@renderer/components/Came
 import { MapPanel } from '@renderer/components/MapPanel'
 import { MetadataPanel } from '@renderer/components/MetadataPanel'
 import { PhotoGrid } from '@renderer/components/PhotoGrid'
+import { SettingsDialog } from '@renderer/components/SettingsDialog'
 import { TrackPanel } from '@renderer/components/TrackPanel'
 import { Button } from '@renderer/components/ui/button'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
@@ -12,6 +13,7 @@ import { localZone, tzLabel } from '@renderer/lib/time'
 import type { DawarichState } from '@shared/ipc'
 import type { LibraryProgress, LibrarySnapshot, PhotoSummary } from '@shared/library'
 import type { Position, TrackGeometry } from '@shared/preview'
+import type { SettingsView } from '@shared/settings'
 import { applyOffsetCandidate } from '@shared/time/applyOffset'
 import { type CameraTimeSettings, defaultCameraSettings } from '@shared/time/cameraSettings'
 import { instantSeconds } from '@shared/time/exifDate'
@@ -44,6 +46,10 @@ export default function App(): React.JSX.Element {
   const [fetchRequest, setFetchRequest] = useState<{ range: FetchRange } | null>(null)
   const [manual, setManual] = useState<Record<string, Position>>({})
   const [geometry, setGeometry] = useState<TrackGeometry | null>(null)
+  const [settings, setSettings] = useState<SettingsView | null>(null)
+  const [mapRevision, setMapRevision] = useState(0)
+  const settingsKey = settings ? JSON.stringify([settings.matching, settings.writing]) : null
+  const matchingKey = settings ? JSON.stringify(settings.matching) : null
   const defaultSettings = useMemo(() => defaultCameraSettings(localZone()), [])
   // Every camera's settings, defaults included: what the preview (and later the write) uses.
   const cameraSettings = useMemo(() => {
@@ -51,8 +57,10 @@ export default function App(): React.JSX.Element {
     for (const c of library?.cameras ?? []) out[c.key] = timeSettings[c.key] ?? defaultSettings
     return out
   }, [library, timeSettings, defaultSettings])
-  const preview = usePreview(library, track, cameraSettings, manual)
+  const preview = usePreview(library, track, cameraSettings, manual, settingsKey)
 
+  // Bridged stays depend on the matching settings too.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: matchingKey is a refetch trigger
   useEffect(() => {
     if (!track) {
       setGeometry(null)
@@ -65,13 +73,14 @@ export default function App(): React.JSX.Element {
     return () => {
       current = false
     }
-  }, [track])
+  }, [track, matchingKey])
 
   useEffect(() => {
     void window.stecknadel.getTrackState().then((state) => {
       setTrack(state.track)
       setDawarich(state.dawarich)
     })
+    void window.stecknadel.getSettings().then(setSettings)
   }, [])
 
   useEffect(
@@ -213,6 +222,16 @@ export default function App(): React.JSX.Element {
             <FolderOpen />
             {library ? 'Open…' : 'Open folder'}
           </Button>
+          {settings && (
+            <SettingsDialog
+              settings={settings}
+              onSaved={setSettings}
+              onPmtilesChosen={(next) => {
+                setSettings(next)
+                setMapRevision((r) => r + 1)
+              }}
+            />
+          )}
         </div>
         {library && (
           <div className="min-h-0 flex-1 overflow-y-auto pb-4">
@@ -263,6 +282,8 @@ export default function App(): React.JSX.Element {
 
       <main aria-label="Map" className="relative min-h-0 bg-muted/40">
         <MapPanel
+          mapSource={settings?.mapSource ?? null}
+          mapRevision={mapRevision}
           library={library}
           hasTrack={!!track && track.count > 0}
           geometry={geometry}

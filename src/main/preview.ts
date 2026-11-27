@@ -123,6 +123,7 @@ export interface PreviewOptions {
   limits: MatchLimits
   bridge: BridgeRules
   overwriteGps: boolean
+  rawTarget: 'in-file' | 'sidecar'
 }
 
 export interface PreviewContext {
@@ -185,7 +186,9 @@ export class PreviewEngine {
 
   private async runNow(input: PreviewInput, ctx: PreviewContext): Promise<PreviewSnapshot | null> {
     const started = performance.now()
-    const { limits, bridge, overwriteGps } = ctx.options
+    const { limits, bridge, overwriteGps, rawTarget } = ctx.options
+    const skipped = (photo: PhotoSummary): boolean =>
+      (photo.gps !== null && !overwriteGps) || (photo.sidecarCollision && rawTarget === 'sidecar')
     const prepared = await this.prepare(ctx.track, limits, bridge)
     if (input.generation !== this.latest) return null
 
@@ -206,12 +209,18 @@ export class PreviewEngine {
     const keys = new Map<string, string>()
     for (const [camera, photos] of byCamera) {
       const settings = input.cameras[camera]
-      const key = JSON.stringify([ctx.loadId, prepared.key, overwriteGps, settings ?? null])
+      const key = JSON.stringify([
+        ctx.loadId,
+        prepared.key,
+        overwriteGps,
+        rawTarget,
+        settings ?? null,
+      ])
       keys.set(camera, key)
       if (this.cache.get(camera)?.key === key) continue
       for (const photo of photos) {
         const geotime = geotimes.get(photo.id)
-        if (geotime && (!photo.gps || overwriteGps)) rows.push({ id: photo.id, geotime })
+        if (geotime && !skipped(photo)) rows.push({ id: photo.id, geotime })
       }
     }
     const recomputed = [...keys].filter(([c, k]) => this.cache.get(c)?.key !== k).map(([c]) => c)
@@ -234,6 +243,7 @@ export class PreviewEngine {
           utc,
           readError: photo.readError,
           hasGps: photo.gps !== null,
+          sidecarCollision: photo.sidecarCollision,
           manual: manual !== undefined,
           exiftoolMatched: raw !== null,
         },
@@ -242,6 +252,7 @@ export class PreviewEngine {
           intervals: prepared.intervals,
           limits,
           overwriteGps,
+          rawTarget,
           fetchedRange: fetchedRange(ctx.track),
         },
       )

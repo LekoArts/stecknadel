@@ -1,21 +1,16 @@
 import 'maplibre-gl/dist/maplibre-gl.css'
+import { BLANK_STYLE, resolveStyle } from '@renderer/lib/mapStyle'
 import { STATUS_COLORS } from '@renderer/lib/status'
 import type { MatchKind } from '@shared/match/status'
 import type { TrackGeometry } from '@shared/preview'
-import type { GeoJSONSource, StyleSpecification } from 'maplibre-gl'
+import type { MapSourceView } from '@shared/settings'
+import type { GeoJSONSource } from 'maplibre-gl'
 import * as maplibregl from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 maplibregl.setWorkerUrl(workerUrl)
 
-const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
-/** Used when the map style can't be loaded (offline): track and pins still show. */
-const BLANK_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {},
-  layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#f4f4f5' } }],
-}
 const TWEEN_MS = 250
 
 export interface MapPin {
@@ -26,6 +21,10 @@ export interface MapPin {
 }
 
 interface MapViewProps {
+  /** Null until the settings are loaded. */
+  mapSource: MapSourceView | null
+  /** Bumped when another PMTiles file is picked (same source, new file). */
+  mapRevision: number
   geometry: TrackGeometry | null
   pins: MapPin[]
   selectedId: string | null
@@ -129,6 +128,8 @@ function addLayers(map: maplibregl.Map): void {
 }
 
 export function MapView({
+  mapSource,
+  mapRevision,
   geometry,
   pins,
   selectedId,
@@ -151,6 +152,8 @@ export function MapView({
   latest.current = { clickMode, onPinClick, onMapClick }
   const pinsRef = useRef(pins)
   pinsRef.current = pins
+  // Set while a requested style is loading: an error then falls back to the blank style.
+  const styleLoading = useRef(false)
 
   useEffect(() => {
     if (!container.current) return
@@ -158,23 +161,22 @@ export function MapView({
       latest.current.clickMode === 'find-offset' || latest.current.clickMode === 'place'
     const map = new maplibregl.Map({
       container: container.current,
-      style: STYLE_URL,
+      style: BLANK_STYLE,
       center: [10, 30],
       zoom: 1.5,
       attributionControl: { compact: true },
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
-    let styled = false
     map.on('style.load', () => {
-      styled = true
+      styleLoading.current = false
       addLayers(map)
       setStyleVersion((v) => v + 1)
     })
     map.on('error', () => {
-      if (!styled) {
-        styled = true
-        map.setStyle(BLANK_STYLE)
+      if (styleLoading.current) {
+        styleLoading.current = false
+        map.setStyle(BLANK_STYLE, { diff: false })
       }
     })
     map.on('click', 'pins', (e) => {
@@ -204,6 +206,26 @@ export function MapView({
     }
   }, [])
 
+  const sourceKey = mapSource ? JSON.stringify(mapSource) : null
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sourceKey stands for mapSource
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !mapSource) return
+    let current = true
+    resolveStyle(mapSource, mapRevision)
+      .then((style) => {
+        if (!current) return
+        styleLoading.current = true
+        map.setStyle(style, { diff: false })
+      })
+      .catch(() => {
+        if (current) map.setStyle(BLANK_STYLE, { diff: false })
+      })
+    return () => {
+      current = false
+    }
+  }, [sourceKey, mapRevision])
+
   useEffect(() => {
     const map = mapRef.current
     const point = clickMode === 'find-offset' || clickMode === 'place'
@@ -215,8 +237,10 @@ export function MapView({
   // biome-ignore lint/correctness/useExhaustiveDependencies: styleVersion is the trigger
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !ready) return
-    ;(map.getSource('track') as GeoJSONSource).setData(trackFeatures(geometry))
+    // Between setStyle and its style.load the sources are gone; style.load re-runs this.
+    const source = map && ready ? (map.getSource('track') as GeoJSONSource | undefined) : undefined
+    if (!map || !source) return
+    source.setData(trackFeatures(geometry))
     if (!geometry || geometry.points.length === 0) return
     const bounds = new maplibregl.LngLatBounds()
     for (const [, lat, lon] of geometry.points) bounds.extend([lon, lat])
@@ -227,8 +251,8 @@ export function MapView({
   // biome-ignore lint/correctness/useExhaustiveDependencies: styleVersion is the trigger
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !ready) return
-    const source = map.getSource('pins') as GeoJSONSource
+    const source = map && ready ? (map.getSource('pins') as GeoJSONSource | undefined) : undefined
+    if (!source) return
     const from = new Map(drawn.current)
     const moving = pins.filter((p) => {
       const at = from.get(p.id)
@@ -243,6 +267,7 @@ export function MapView({
     }
     const start = performance.now()
     const step = (now: number): void => {
+      if (map?.getSource('pins') !== source) return
       const k = Math.min(1, (now - start) / TWEEN_MS)
       const ease = 1 - (1 - k) ** 3
       const current = new Map(target)

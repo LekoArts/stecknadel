@@ -24,12 +24,14 @@ export function usePreview(
   track: TrackSummary | null,
   cameras: Record<string, CameraTimeSettings>,
   manual: Record<string, Position>,
+  /** Changes whenever saved matching or writing settings change: main reads them per run. */
+  settingsKey: string | null,
 ): PreviewState {
   const [state, setState] = useState<PreviewState>({ snapshot: null, running: false, error: null })
   const generation = useRef(0)
 
   useEffect(() => {
-    if (!library || !track || track.count === 0) {
+    if (!library || !track || track.count === 0 || settingsKey === null) {
       generation.current += 1
       setState({ snapshot: null, running: false, error: null })
       return
@@ -49,7 +51,7 @@ export function usePreview(
       )
     }, DEBOUNCE_MS)
     return () => clearTimeout(timer)
-  }, [library, track, cameras, manual])
+  }, [library, track, cameras, manual, settingsKey])
 
   return state
 }

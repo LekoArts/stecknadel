@@ -20,6 +20,7 @@ import { exiftool } from './exiftool'
 import { createHandlers } from './handlers'
 import { registerIpc } from './ipc'
 import { Library } from './library/library'
+import { PMTILES_SCHEME, servePmtiles } from './pmtilesProtocol'
 import { PreviewEngine } from './preview'
 import { Secrets } from './secrets'
 import { SettingsStore } from './settings'
@@ -31,6 +32,10 @@ if (process.env.STECKNADEL_USER_DATA) app.setPath('userData', process.env.STECKN
 
 protocol.registerSchemesAsPrivileged([
   { scheme: THUMB_SCHEME, privileges: { standard: true, secure: true } },
+  {
+    scheme: PMTILES_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true },
+  },
 ])
 
 const imageOps: ImageOps = {
@@ -186,6 +191,11 @@ app.whenReady().then(async () => {
     }
   })
 
+  protocol.handle(PMTILES_SCHEME, (request) => {
+    const source = settings.get().mapSource
+    return servePmtiles(request, source.kind === 'pmtiles' ? source.path : null)
+  })
+
   registerIpc(
     createHandlers({
       et: exiftool,
@@ -207,6 +217,12 @@ app.whenReady().then(async () => {
           title: 'Load GPX track',
           properties: ['openFile'],
           filters: [{ name: 'GPX track', extensions: ['gpx'] }],
+        }),
+      choosePmtilesFile: () =>
+        choosePath({
+          title: 'Choose offline map',
+          properties: ['openFile'],
+          filters: [{ name: 'PMTiles map', extensions: ['pmtiles'] }],
         }),
       send: (event, payload) => {
         if (mainWindow && !mainWindow.isDestroyed()) {

@@ -37,6 +37,9 @@ export type MatchStatus =
 
 export type MatchKind = MatchStatus['kind']
 
+export const SIDECAR_COLLISION =
+  'Another RAW in this folder has the same name, so they would share one .xmp sidecar'
+
 /** Statuses that get coordinates written. */
 export const PLACED_KINDS: ReadonlySet<MatchKind> = new Set(['matched', 'matched-stay', 'manual'])
 
@@ -45,6 +48,8 @@ export interface ClassifyPhoto {
   utc: number | null
   readError: string | null
   hasGps: boolean
+  /** A RAW sharing its base name with another RAW in the folder (one `.xmp` for both). */
+  sidecarCollision: boolean
   manual: boolean
   /** Whether ExifTool's `-geotag` set a position for this photo. */
   exiftoolMatched: boolean
@@ -55,6 +60,7 @@ export interface ClassifyContext {
   intervals: BridgedInterval[]
   limits: MatchLimits
   overwriteGps: boolean
+  rawTarget: 'in-file' | 'sidecar'
   /** The Dawarich fetch range; null for GPX tracks (a file has no "outside"). */
   fetchedRange: FetchRange | null
 }
@@ -65,6 +71,8 @@ export interface ClassifyContext {
  */
 export function classify(photo: ClassifyPhoto, ctx: ClassifyContext): MatchStatus {
   if (photo.readError) return { kind: 'excluded', reason: photo.readError }
+  if (photo.sidecarCollision && ctx.rawTarget === 'sidecar')
+    return { kind: 'excluded', reason: SIDECAR_COLLISION }
   if (photo.manual) return { kind: 'manual' }
   if (photo.hasGps && !ctx.overwriteGps) return { kind: 'has-gps' }
   if (photo.utc === null) return { kind: 'no-capture-time' }

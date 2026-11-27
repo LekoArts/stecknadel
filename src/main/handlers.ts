@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import type { DawarichState, IpcEventName, IpcEvents, IpcOutput } from '@shared/ipc'
+import type { MapSource, SettingsView } from '@shared/settings'
 import { summarizeTrack, type Track } from '@shared/track/types'
 import type { ExifTool } from 'exiftool-vendored'
 import type { CameraNames } from './cameras-store'
@@ -29,6 +30,7 @@ export interface HandlerDeps {
   /** Main's own pickers: the only way a path enters the app. */
   chooseFolder: () => Promise<string | null>
   chooseGpxFile: () => Promise<string | null>
+  choosePmtilesFile: () => Promise<string | null>
   send: <E extends IpcEventName>(event: E, payload: IpcEvents[E]) => void
 }
 
@@ -40,6 +42,18 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     hasKey: await secrets.hasKey(),
     secureStorage: secrets.available(),
   })
+
+  const settingsView = (): SettingsView => {
+    const { matching, writing, mapSource } = settings.get()
+    return {
+      matching,
+      writing,
+      mapSource:
+        mapSource.kind === 'pmtiles'
+          ? { kind: 'pmtiles', name: basename(mapSource.path) }
+          : mapSource,
+    }
+  }
 
   const keyOrStored = async (key: string | undefined): Promise<string> => {
     const resolved = key?.trim() || (await secrets.getKey())
@@ -102,16 +116,39 @@ export function createHandlers(deps: HandlerDeps): Handlers {
         geoMaxIntSecs,
       }
     },
+    getSettings: async () => settingsView(),
+    saveSettings: async ({ matching, writing, mapSource }) => {
+      let source: MapSource
+      if (mapSource.kind === 'pmtiles') {
+        const current = settings.get().mapSource
+        if (current.kind !== 'pmtiles') throw new Error('Choose a PMTiles file first')
+        source = current
+      } else source = mapSource
+      await settings.update({ matching, writing, mapSource: source })
+      return settingsView()
+    },
+    choosePmtiles: async () => {
+      const path = await deps.choosePmtilesFile()
+      if (!path) return null
+      await settings.update({ mapSource: { kind: 'pmtiles', path } })
+      return settingsView()
+    },
     runPreview: async (input) => {
       const track = tracks.current
       const photos = library.all()
       if (!track || track.points.length === 0 || photos.length === 0) return null
-      const { geoMaxIntSecs, geoMaxExtSecs, bridge, overwriteGps } = settings.get().matching
+      const { matching, writing } = settings.get()
+      const { geoMaxIntSecs, geoMaxExtSecs, bridge } = matching
       return deps.preview.run(input, {
         loadId: library.loadId,
         photos: photos.map((p) => p.summary),
         track,
-        options: { limits: { geoMaxIntSecs, geoMaxExtSecs }, bridge, overwriteGps },
+        options: {
+          limits: { geoMaxIntSecs, geoMaxExtSecs },
+          bridge,
+          overwriteGps: writing.overwriteGps,
+          rawTarget: writing.rawTarget,
+        },
       })
     },
   }

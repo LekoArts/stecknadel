@@ -8,6 +8,7 @@ import type {
 } from './library'
 import { PHOTO_ID_PATTERN } from './library'
 import { type PreviewSnapshot, previewInputSchema, type TrackGeometry } from './preview'
+import { type SettingsView, saveSettingsSchema } from './settings'
 import type { TrackSummary } from './track/types'
 
 const photoRef = z.strictObject({ id: z.string().regex(PHOTO_ID_PATTERN) })
@@ -105,6 +106,20 @@ export const ipcContract = {
   runPreview: {
     input: previewInputSchema,
     output: z.custom<PreviewSnapshot | null>(),
+  },
+  getSettings: {
+    input: z.undefined(),
+    output: z.custom<SettingsView>(),
+  },
+  /** Saves matching, writing and map settings; a PMTiles source keeps the file main picked. */
+  saveSettings: {
+    input: saveSettingsSchema,
+    output: z.custom<SettingsView>(),
+  },
+  /** Shows the PMTiles file picker and makes the chosen file the map source; null when cancelled. */
+  choosePmtiles: {
+    input: z.undefined(),
+    output: z.custom<SettingsView | null>(),
   },
 } as const
 

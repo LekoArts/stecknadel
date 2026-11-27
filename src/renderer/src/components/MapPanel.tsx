@@ -14,6 +14,7 @@ import {
   statusReason,
 } from '@shared/match/status'
 import type { Position, TrackGeometry } from '@shared/preview'
+import type { MapSourceView } from '@shared/settings'
 import { instantSeconds, secondsToInstant, wallAsUtcSeconds } from '@shared/time/exifDate'
 import { findOffsetCandidates, type OffsetCandidate } from '@shared/time/offsetFinder'
 import type { PhotoUtc } from '@shared/time/toUtc'
@@ -31,6 +32,8 @@ import { useEffect, useMemo, useState } from 'react'
 const LIST_LIMIT = 300
 
 interface MapPanelProps {
+  mapSource: MapSourceView | null
+  mapRevision: number
   library: LibrarySnapshot | null
   hasTrack: boolean
   geometry: TrackGeometry | null
@@ -45,6 +48,8 @@ interface MapPanelProps {
 type Finder = { candidates: OffsetCandidate[] } | null
 
 export function MapPanel({
+  mapSource,
+  mapRevision,
   library,
   hasTrack,
   geometry,
@@ -156,6 +161,8 @@ export function MapPanel({
 
   return (
     <MapView
+      mapSource={mapSource}
+      mapRevision={mapRevision}
       geometry={geometry}
       pins={pins}
       selectedId={selectedId}

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { type ClassifyContext, type ClassifyPhoto, classify, statusReason } from './status'
+import {
+  type ClassifyContext,
+  type ClassifyPhoto,
+  classify,
+  SIDECAR_COLLISION,
+  statusReason,
+} from './status'
 
 const T0 = Date.UTC(2026, 5, 1, 6) / 1000
 const points = [
@@ -14,12 +20,14 @@ const ctx: ClassifyContext = {
   intervals: [{ from: T0 + 4 * 3600, to: T0 + 5 * 3600 }],
   limits: { geoMaxIntSecs: 1800, geoMaxExtSecs: 1800 },
   overwriteGps: false,
+  rawTarget: 'in-file',
   fetchedRange: null,
 }
 const photo = (over: Partial<ClassifyPhoto>): ClassifyPhoto => ({
   utc: T0 + 600,
   readError: null,
   hasGps: false,
+  sidecarCollision: false,
   manual: false,
   exiftoolMatched: false,
   ...over,
@@ -93,5 +101,14 @@ describe('classify', () => {
     expect(statusReason({ kind: 'after-track', seconds: 3 * 86_400 })).toBe(
       '3 days after the last track point',
     )
+  })
+
+  it('a RAW whose sidecar would collide is excluded only in sidecar mode', () => {
+    const p = photo({ sidecarCollision: true, exiftoolMatched: true })
+    expect(classify(p, ctx).kind).toBe('matched')
+    expect(classify(p, { ...ctx, rawTarget: 'sidecar' })).toEqual({
+      kind: 'excluded',
+      reason: SIDECAR_COLLISION,
+    })
   })
 })

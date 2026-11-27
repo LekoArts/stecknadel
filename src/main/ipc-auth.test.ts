@@ -2,6 +2,7 @@ import { copyFile, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type IpcName, ipcChannel, ipcNames } from '@shared/ipc'
+import type { SettingsView } from '@shared/settings'
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron'
 import { ExifTool } from 'exiftool-vendored'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -33,6 +34,7 @@ let library: Library
 const thumbRequests: string[] = []
 const chooseFolder = vi.fn<() => Promise<string | null>>()
 const chooseGpxFile = vi.fn<() => Promise<string | null>>()
+const choosePmtilesFile = vi.fn<() => Promise<string | null>>()
 const SECRET = 'sk-test-secret-key-1234'
 
 const invoke = (name: IpcName, input?: unknown, event = trusted): Promise<unknown> =>
@@ -66,6 +68,7 @@ beforeAll(async () => {
       tracks: { current: null },
       chooseFolder,
       chooseGpxFile,
+      choosePmtilesFile,
       send: () => {},
     }),
     () => window,
@@ -180,5 +183,34 @@ describe('IPC authorization', () => {
   it('returns null without loading anything when the folder dialog is cancelled', async () => {
     chooseFolder.mockResolvedValueOnce(null)
     await expect(invoke('openFolder')).resolves.toBeNull()
+  })
+
+  it('saves settings; a PMTiles path only comes from main’s picker and never goes back out', async () => {
+    const view = (await invoke('getSettings')) as SettingsView
+    expect(view.mapSource).toEqual({ kind: 'openfreemap' })
+    const matching = { ...view.matching, geoMaxIntSecs: 600 }
+    await expect(
+      invoke('saveSettings', { ...view, matching, mapSource: { kind: 'pmtiles' } }),
+    ).rejects.toThrow(/Choose a PMTiles file first/)
+    const saved = (await invoke('saveSettings', { ...view, matching })) as SettingsView
+    expect(saved.matching.geoMaxIntSecs).toBe(600)
+    await expect(
+      invoke('saveSettings', { ...view, matching: { ...matching, geoMaxIntSecs: 30 } }),
+    ).rejects.toThrow(/invalid input/)
+
+    const pmtiles = join(dir, 'secret-folder', 'alps.pmtiles')
+    choosePmtilesFile.mockResolvedValueOnce(pmtiles)
+    const chosen = (await invoke('choosePmtiles')) as SettingsView
+    expect(chosen.mapSource).toEqual({ kind: 'pmtiles', name: 'alps.pmtiles' })
+    const kept = (await invoke('saveSettings', {
+      ...chosen,
+      mapSource: { kind: 'pmtiles' },
+    })) as SettingsView
+    expect(kept.mapSource).toEqual({ kind: 'pmtiles', name: 'alps.pmtiles' })
+    expect(JSON.stringify([chosen, kept, await invoke('getSettings')])).not.toContain(
+      'secret-folder',
+    )
+    choosePmtilesFile.mockResolvedValueOnce(null)
+    await expect(invoke('choosePmtiles')).resolves.toBeNull()
   })
 })

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { type IpcName, ipcChannel, ipcContract, ipcNames } from './ipc'
+import { DEFAULT_MATCHING, DEFAULT_WRITING } from './settings'
 
 const id = `p${'0123456789abcdef'.repeat(2).slice(0, 24)}`
 
 /** For every channel: inputs its schema must accept and inputs it must reject. */
+const settings = { matching: DEFAULT_MATCHING, writing: DEFAULT_WRITING }
+
 const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
   getAppInfo: {
     valid: [undefined],
@@ -75,6 +78,33 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
     ],
   },
   getTrackGeometry: { valid: [undefined], invalid: [{}, 'x'] },
+  getSettings: {
+    valid: [undefined],
+    invalid: [null, {}, { path: '/x.pmtiles' }],
+  },
+  saveSettings: {
+    valid: [
+      { ...settings, mapSource: { kind: 'openfreemap' } },
+      { ...settings, mapSource: { kind: 'style', url: 'https://example.com/style.json' } },
+      { ...settings, mapSource: { kind: 'pmtiles' } },
+    ],
+    invalid: [
+      undefined,
+      { ...settings },
+      { ...settings, mapSource: { kind: 'pmtiles', path: '/x.pmtiles' } },
+      { ...settings, mapSource: { kind: 'style', url: 'file:///etc/style.json' } },
+      { ...settings, mapSource: { kind: 'openfreemap' }, extra: 1 },
+      {
+        ...settings,
+        writing: { ...DEFAULT_WRITING, rawTarget: 'both' },
+        mapSource: { kind: 'openfreemap' },
+      },
+    ],
+  },
+  choosePmtiles: {
+    valid: [undefined],
+    invalid: [null, {}, '/x.pmtiles', { path: '/x.pmtiles' }],
+  },
   runPreview: {
     valid: [
       { generation: 1, cameras: {}, manual: {} },

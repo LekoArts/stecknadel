@@ -19,9 +19,11 @@ test('window opens with the security baseline', async () => {
     expect(renderer.process).toBe('undefined')
     expect(renderer.debug).toBe(false)
     expect(renderer.api.sort()).toEqual([
+      'choosePmtiles',
       'fetchDawarich',
       'getAppInfo',
       'getMetadata',
+      'getSettings',
       'getThumbnail',
       'getTrackGeometry',
       'getTrackState',
@@ -31,6 +33,7 @@ test('window opens with the security baseline', async () => {
       'renameCamera',
       'runPreview',
       'saveDawarichSettings',
+      'saveSettings',
       'testDawarich',
     ])
 
