@@ -392,6 +392,13 @@ function DriftEditor({
   const [draft, setDraft] = useState(value === 0 ? '' : String(Math.abs(value)))
   // Direction is a choice, not a sign the user has to remember.
   const [slow, setSlow] = useState(value < 0)
+  // The offset finder and "copy from camera" change the drift from outside: show their value.
+  const [shown, setShown] = useState(value)
+  if (value !== shown) {
+    setShown(value)
+    setDraft(value === 0 ? '' : String(Math.abs(value)))
+    setSlow(value < 0)
+  }
   const parsed = draft.trim() === '' ? 0 : Number(draft)
   const valid = Number.isInteger(parsed) && parsed >= 0 && parsed <= 86_400
   const apply = (seconds: number, isSlow: boolean): void => {
