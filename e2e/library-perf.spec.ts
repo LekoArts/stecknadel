@@ -47,7 +47,7 @@ test('5,000 JPEGs load in under 60 s and the grid scrolls at p95 < 33 ms per fra
   try {
     const t0 = Date.now()
     await openFolder(app, page, folder)
-    await expect(page.getByRole('button', { name: 'All photos' })).toContainText(String(COUNT), {
+    await expect(page.getByRole('button', { name: 'All cameras' })).toContainText(String(COUNT), {
       timeout: 60_000,
     })
     await expect(page.getByTestId('photo-tile').first()).toBeVisible()

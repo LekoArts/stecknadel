@@ -36,7 +36,7 @@ export function CameraList({
           onClick={() => onSelect(null)}
           className={rowClass(selectedKey === null)}
         >
-          <span className="flex-1 truncate">All photos</span>
+          <span className="flex-1 truncate">All cameras</span>
           <span className="text-muted-foreground tabular-nums">{total}</span>
         </button>
       </li>

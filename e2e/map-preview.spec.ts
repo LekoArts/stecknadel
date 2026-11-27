@@ -215,7 +215,7 @@ test('map preview: pins follow the camera time, offset finder and manual placeme
     if (!truth) throw new Error('oracle has no 07:00Z position')
     snap = await settled(page, ids)
     expect(near(snap.get('c-find.jpg')?.position, truth)).toBe(false)
-    await page.getByRole('button', { name: 'All photos' }).click()
+    await page.getByRole('button', { name: 'All cameras' }).click()
     await page.locator(`[data-photo-id="${ids.get('c-find.jpg')}"]`).click()
     const actions = page.getByTestId('photo-actions')
     await actions.getByRole('button', { name: 'Find offset' }).click()

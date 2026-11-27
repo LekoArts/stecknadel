@@ -92,7 +92,7 @@ test('preview: 5,000 stubs against a 2,708-point track; full run and one-camera 
   const { app, page, close } = await launchWithProfile()
   try {
     await openFolder(app, page, photos)
-    await expect(page.getByRole('button', { name: 'All photos' })).toContainText(String(COUNT), {
+    await expect(page.getByRole('button', { name: 'All cameras' })).toContainText(String(COUNT), {
       timeout: 120_000,
     })
     // Every camera in UTC before the track arrives, so the first run is the full one.

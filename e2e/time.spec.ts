@@ -73,7 +73,7 @@ test('per-camera time: zone, time change, drift, recorded offsets and the UTC co
   const { app, page, close } = await launchWithProfile()
   try {
     await openFolder(app, page, folder)
-    await expect(page.getByRole('button', { name: 'All photos' })).toContainText('3')
+    await expect(page.getByRole('button', { name: 'All cameras' })).toContainText('3')
     await expect(page.getByTestId('camera-time-label').first()).toContainText('unconfirmed')
 
     // Camera A: confirm Zurich time → UTC follows the zone's summer offset.

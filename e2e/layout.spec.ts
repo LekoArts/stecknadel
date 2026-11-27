@@ -80,7 +80,7 @@ test('panels resize, hide, snap shut and come back at their size after a relaunc
     await expect(metadata).toHaveCount(0)
 
     // Dragging a panel shut leaves focus on its toggle, not lost on the page.
-    await cameras.getByRole('button', { name: /^All photos/ }).focus()
+    await cameras.getByRole('button', { name: /^All cameras/ }).focus()
     const cameraSeparator = await separators.first().boundingBox()
     if (!cameraSeparator) throw new Error('no separator')
     await page.mouse.move(cameraSeparator.x + 2, cameraSeparator.y + 100)
@@ -330,7 +330,7 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
     await page.getByRole('button', { name: 'Clear filters' }).click()
     await expect(rows).toHaveCount(4)
     if (process.env.STECKNADEL_SHOTS) await page.screenshot({ path: '/tmp/steck-list.png' })
-    await expect(page.getByRole('button', { name: /^All photos/ })).toHaveAttribute(
+    await expect(page.getByRole('button', { name: /^All cameras/ })).toHaveAttribute(
       'aria-pressed',
       'true',
     )

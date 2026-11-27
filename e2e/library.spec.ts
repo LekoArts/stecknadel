@@ -28,7 +28,7 @@ test('opens a folder, lists cameras, shows thumbnails and read-only metadata', a
   const { app, page, close } = await launchWithProfile()
   try {
     await openFolder(app, page, folder)
-    await expect(page.getByRole('button', { name: 'All photos' })).toContainText('11')
+    await expect(page.getByRole('button', { name: 'All cameras' })).toContainText('11')
 
     const cameras = page.getByTestId('camera')
     await expect(cameras).toHaveCount(11)
