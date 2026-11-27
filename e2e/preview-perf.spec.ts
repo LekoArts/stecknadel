@@ -134,7 +134,8 @@ test('preview: 5,000 stubs against a 2,708-point track; full run and one-camera 
     console.log(
       `STECKNADEL_PERF preview one-camera recompute (${COUNT / CAMERAS} stubs): ${(single.durationMs / 1000).toFixed(2)} s`,
     )
-    // Plan target ≤ 3 s; above it the "Updating positions" state carries the wait (recorded, not failed).
+    // Plan target: a one-camera change is back on the map within 3 s.
+    expect(single.durationMs).toBeLessThan(3000)
     await expect(page.getByTestId('preview-state')).toBeHidden({ timeout: 60_000 })
   } finally {
     await close()

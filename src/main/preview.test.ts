@@ -88,6 +88,24 @@ describe('ExifTool preview against stubs', () => {
     expect(Math.abs(Number(stub?.alt) - (want?.ele as number))).toBeLessThan(ELE_TOLERANCE)
   })
 
+  it('split over several processes, every photo gets the position one batch gives it', async () => {
+    const start = utcOf('2026-06-01T05:30:00Z')
+    const rows = Array.from({ length: 160 }, (_, n) => ({
+      id: id(1000 + n),
+      geotime: geotime(new Date((start + n * 240) * 1000).toISOString()),
+    }))
+    const pool = new ExifTool({ maxProcs: 3, minDelayBetweenSpawnMillis: 0 })
+    try {
+      const single = await geotagStubs(et, rows, gpxPath, DEFAULT_LIMITS)
+      const split = await geotagStubs(pool, rows, gpxPath, DEFAULT_LIMITS)
+      expect(split.size).toBe(160)
+      expect([...single.values()].filter(Boolean).length).toBeGreaterThan(100)
+      expect(Object.fromEntries(split)).toEqual(Object.fromEntries(single))
+    } finally {
+      await pool.end()
+    }
+  })
+
   it('leaves unmatched stubs without GPS', async () => {
     const result = await geotagStubs(
       et,

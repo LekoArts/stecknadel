@@ -104,20 +104,33 @@ export async function geotagStubs(
   if (rows.length === 0) return result
   const dir = await mkdtemp(join(tmpdir(), 'stecknadel-preview-'))
   try {
-    const files = rows.map((r) => join(dir, `${r.id}.xmp`))
-    await Promise.all(files.map((f) => writeFile(f, STUB_XMP)))
-    const csv = join(dir, 'geotime.csv')
-    await writeFile(csv, geotimeCsv(rows.map((r, i) => ({ file: files[i], geotime: r.geotime }))))
-    await runRaw(et, ['-overwrite_original', ...geotagArgs(csv, gpxPath, limits), ...files])
-    const positions = await readStubPositions(et, files)
-    rows.forEach((r) => {
-      result.set(r.id, positions.get(`${r.id}.xmp`) ?? null)
-    })
+    // Split over the process pool: each chunk is the same command on fewer files, and
+    // ExifTool geotags every file on its own, so the result equals one big batch.
+    const size = Math.max(MIN_CHUNK, Math.ceil(rows.length / et.options.maxProcs))
+    const chunks: GeotagRow[][] = []
+    for (let i = 0; i < rows.length; i += size) chunks.push(rows.slice(i, i + size))
+    await Promise.all(
+      chunks.map(async (chunk, k) => {
+        const files = chunk.map((r) => join(dir, `${r.id}.xmp`))
+        await Promise.all(files.map((f) => writeFile(f, STUB_XMP)))
+        const csv = join(dir, `geotime-${k}.csv`)
+        await writeFile(
+          csv,
+          geotimeCsv(chunk.map((r, i) => ({ file: files[i], geotime: r.geotime }))),
+        )
+        await runRaw(et, ['-overwrite_original', ...geotagArgs(csv, gpxPath, limits), ...files])
+        const positions = await readStubPositions(et, files)
+        for (const r of chunk) result.set(r.id, positions.get(`${r.id}.xmp`) ?? null)
+      }),
+    )
     return result
   } finally {
     await rm(dir, { recursive: true, force: true })
   }
 }
+
+/** Below this many photos per process, a chunk's startup cost outweighs the split. */
+const MIN_CHUNK = 50
 
 export interface PreviewOptions {
   limits: MatchLimits
