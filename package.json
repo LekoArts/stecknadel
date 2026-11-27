@@ -30,6 +30,7 @@
     "package:win": "electron-builder --win nsis portable --x64 --publish never",
     "fixtures": "node scripts/fetch-fixtures.mjs",
     "make-fixtures": "node scripts/make-fixtures.mjs",
+    "make-demo": "node scripts/make-demo.mjs",
     "postinstall": "install-electron && electron-builder install-app-deps",
     "make-pmtiles": "node scripts/make-pmtiles.mjs"
   },

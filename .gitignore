@@ -9,6 +9,7 @@ test-results/
 playwright-report/
 test/fixtures/cache/
 test/fixtures/generated/
+test/fixtures/demo/
 
 # real-data specs and tests (never committed: the repo is public)
 e2e/local/
