@@ -8,7 +8,7 @@ export const STATUS_GROUPS: StatusGroup[] = ['attention', 'placed', 'has-gps']
 export const STATUS_GROUP_LABELS: Record<StatusGroup, string> = {
   attention: 'Needs attention',
   placed: 'Placed',
-  'has-gps': 'Has GPS',
+  'has-gps': 'Already has GPS',
 }
 
 /** Whether a photo belongs in a group; a photo without a preview status belongs to none. */

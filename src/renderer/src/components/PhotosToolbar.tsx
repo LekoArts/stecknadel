@@ -12,13 +12,12 @@ export type PhotoView = 'grid' | 'list'
 interface PhotosToolbarProps {
   view: PhotoView
   onView: (view: PhotoView) => void
+  /** Cameras to pick from; empty while the sidebar camera list is on screen (it is the picker then). */
   cameras: CameraSummary[]
   cameraFilter: string | null
   onCameraFilter: (key: string | null) => void
   /** Photos in each group under the current camera filter; null without a preview. */
   groupCounts: Record<StatusGroup, number> | null
-  /** Photos under the current camera filter. */
-  total: number
   statusFilter: StatusGroup | null
   onStatusFilter: (group: StatusGroup | null) => void
 }
@@ -33,7 +32,6 @@ export function PhotosToolbar({
   cameraFilter,
   onCameraFilter,
   groupCounts,
-  total,
   statusFilter,
   onStatusFilter,
 }: PhotosToolbarProps): React.JSX.Element {
@@ -75,7 +73,7 @@ export function PhotosToolbar({
             onClick={() => onStatusFilter(null)}
             className={segment}
           >
-            All <span className="tabular-nums opacity-70">{total.toLocaleString()}</span>
+            All
           </button>
           {STATUS_GROUPS.filter((g) => groupCounts[g] > 0 || statusFilter === g).map((g) => (
             <button
@@ -85,8 +83,7 @@ export function PhotosToolbar({
               onClick={() => onStatusFilter(statusFilter === g ? null : g)}
               className={segment}
             >
-              {STATUS_GROUP_LABELS[g]}{' '}
-              <span className="tabular-nums opacity-70">{groupCounts[g].toLocaleString()}</span>
+              {STATUS_GROUP_LABELS[g]}
             </button>
           ))}
         </div>

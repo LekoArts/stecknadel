@@ -578,11 +578,10 @@ export default function App(): React.JSX.Element {
                         setView(next)
                         localStorage.setItem(VIEW_KEY, next)
                       }}
-                      cameras={library.cameras}
+                      cameras={panels.open.cameras ? [] : library.cameras}
                       cameraFilter={cameraFilter}
                       onCameraFilter={setCameraFilter}
                       groupCounts={groupCounts}
-                      total={cameraPhotos.length}
                       statusFilter={activeStatusFilter}
                       onStatusFilter={setStatusFilter}
                     />

@@ -163,14 +163,17 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
     const status = toolbar.getByRole('group', { name: 'Status' })
     await status.getByRole('button', { name: /Needs attention/ }).click()
     expect(await names()).toEqual(['b-late.jpg'])
-    await status.getByRole('button', { name: /Has GPS/ }).click()
+    await status.getByRole('button', { name: /has GPS/ }).click()
     expect(await names()).toEqual(['c-gps.jpg'])
     await status.getByRole('button', { name: /Placed/ }).click()
     expect(await names()).toEqual(['b-day2.jpg', 'a.jpg'])
 
-    // The toolbar's camera filter is the sidebar's.
+    // With the camera list hidden the toolbar picks the camera; the filter is the sidebar's.
+    await expect(toolbar.getByRole('combobox', { name: 'Camera' })).toHaveCount(0)
+    await page.keyboard.press(`${mod}+1`)
     await toolbar.getByRole('combobox', { name: 'Camera' }).click()
     await page.getByRole('option', { name: /Camera C/ }).click()
+    await page.keyboard.press(`${mod}+1`)
     await expect(
       page
         .getByTestId('camera')
