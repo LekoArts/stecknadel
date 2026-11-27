@@ -94,6 +94,15 @@ describe('sortPhotos', () => {
     expect(ids(sortPhotos(nested, { key: 'name', dir: 'asc' }, ctx))).toEqual(['y', 'x'])
   })
 
+  it('breaks file name ties by folder, and a prefix name sorts first', () => {
+    const list = [
+      photo('x', { name: 'a.jpg.jpg', relDir: 'a' }),
+      photo('y', { name: 'a.jpg', relDir: 'z' }),
+      photo('w', { name: 'a.jpg', relDir: 'b' }),
+    ]
+    expect(ids(sortPhotos(list, { key: 'name', dir: 'asc' }, ctx))).toEqual(['w', 'y', 'x'])
+  })
+
   it('puts missing values last in both directions', () => {
     expect(ids(sortPhotos(photos, { key: 'captured', dir: 'asc' }, ctx))).toEqual([
       'p1',

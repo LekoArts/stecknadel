@@ -59,8 +59,7 @@ export function sortPhotos(
   const value = (p: PhotoSummary): string | number | null => {
     switch (sort.key) {
       case 'name':
-        // The column shows the file name; the folder only breaks ties.
-        return `${p.name}\u0000${p.relDir}`
+        return p.name
       case 'camera':
         return ctx.cameraNames.get(p.cameraKey) ?? null
       case 'captured':
@@ -83,10 +82,12 @@ export function sortPhotos(
         if (a.value === b.value) return a.index - b.index
         return a.value === null ? 1 : -1
       }
-      const c =
+      let c =
         typeof a.value === 'number' && typeof b.value === 'number'
           ? a.value - b.value
           : collator.compare(String(a.value), String(b.value))
+      // The column shows the file name; the folder only breaks ties.
+      if (c === 0 && sort.key === 'name') c = collator.compare(a.photo.relDir, b.photo.relDir)
       return c === 0 ? a.index - b.index : c * sign
     })
     .map((e) => e.photo)

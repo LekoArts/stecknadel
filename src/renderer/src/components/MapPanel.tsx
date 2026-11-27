@@ -187,10 +187,29 @@ export function MapPanel({
       )}
 
       <div className="pointer-events-none absolute top-3 left-3 flex max-h-[calc(100%-5rem)] w-72 max-w-[calc(100%-10rem)] flex-col gap-2">
+        {(preview.running || preview.error) && !empty && (
+          <div
+            role="status"
+            data-testid="preview-state"
+            className={cn(
+              'flex shrink-0 items-center gap-1.5 self-start rounded-full border bg-background/95 px-3 py-1 text-xs shadow-sm',
+              preview.error && 'text-destructive',
+            )}
+          >
+            {preview.error ? (
+              `Preview failed: ${preview.error}`
+            ) : (
+              <>
+                <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" />
+                Updating positions
+              </>
+            )}
+          </div>
+        )}
         {selected && !empty && (
           <div
             data-testid="photo-actions"
-            className="pointer-events-auto flex shrink-0 flex-col gap-2 rounded-lg border bg-background/95 p-3 shadow-sm"
+            className="pointer-events-auto flex min-h-0 flex-col gap-2 overflow-y-auto rounded-lg border bg-background/95 p-3 shadow-sm"
           >
             <h2 className="sr-only">{selected.name}</h2>
             {selectedStatus ? (
@@ -333,26 +352,6 @@ export function MapPanel({
           </div>
         )}
       </div>
-
-      {(preview.running || preview.error) && !empty && (
-        <div
-          role="status"
-          data-testid="preview-state"
-          className={cn(
-            'absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background/95 px-3 py-1 text-xs shadow-sm',
-            preview.error && 'text-destructive',
-          )}
-        >
-          {preview.error ? (
-            `Preview failed: ${preview.error}`
-          ) : (
-            <>
-              <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" />
-              Updating positions
-            </>
-          )}
-        </div>
-      )}
 
       {counts.size > 0 && (
         <ul

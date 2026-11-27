@@ -368,6 +368,7 @@ export default function App(): React.JSX.Element {
     >
       <ResizablePanel
         id="cameras"
+        data-testid="panel-cameras"
         panelRef={panels.refs.cameras}
         collapsible
         minSize={PANEL_MIN.cameras}
@@ -491,7 +492,7 @@ export default function App(): React.JSX.Element {
       </ResizablePanel>
       <ResizableHandle />
 
-      <ResizablePanel id="center" minSize={CENTER_MIN_WIDTH}>
+      <ResizablePanel id="center" data-testid="panel-center" minSize={CENTER_MIN_WIDTH}>
         <ResizablePanelGroup
           id="center-split"
           orientation="vertical"
@@ -501,7 +502,7 @@ export default function App(): React.JSX.Element {
             if (meta.isUserInteraction) panels.rememberSizes(['photos'])
           }}
         >
-          <ResizablePanel id="map" minSize={MAP_MIN_HEIGHT}>
+          <ResizablePanel id="map" data-testid="panel-map" minSize={MAP_MIN_HEIGHT}>
             <main aria-label="Map" className="relative h-full min-h-0 bg-muted/40">
               <MapPanel
                 mapSource={settings?.mapSource ?? null}
@@ -522,6 +523,7 @@ export default function App(): React.JSX.Element {
           <ResizableHandle />
           <ResizablePanel
             id="photos"
+            data-testid="panel-photos"
             panelRef={panels.refs.photos}
             collapsible
             minSize={PANEL_MIN.photos}
@@ -640,6 +642,7 @@ export default function App(): React.JSX.Element {
       <ResizableHandle />
       <ResizablePanel
         id="metadata"
+        data-testid="panel-metadata"
         panelRef={panels.refs.metadata}
         collapsible
         minSize={PANEL_MIN.metadata}
