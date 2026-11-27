@@ -56,42 +56,6 @@
       "source": "https://commons.wikimedia.org/wiki/File:Clouds_over_the_North_Sea.jpg"
     },
     {
-      "name": "canada-place.jpg",
-      "url": "https://upload.wikimedia.org/wikipedia/commons/4/41/Vancouver_Convention_Centre_from_Seawall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
-      "sha256": "c59bf36f311e82032d57f9999de9c42339018cfd4a76e3bdfab907609b7afe62",
-      "size": 5422046,
-      "license": "CC0",
-      "author": "Ash-M-Bishop",
-      "source": "https://commons.wikimedia.org/wiki/File:Vancouver_Convention_Centre_from_Seawall.jpg"
-    },
-    {
-      "name": "stanley-park-seawall.jpg",
-      "url": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Stanley_Seawall.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
-      "sha256": "91b6adbf7e32ad58734dc19863ed0738afa2e6dedd18399192a7dc1fff92c959",
-      "size": 1886153,
-      "license": "Public domain",
-      "author": "bobanny",
-      "source": "https://commons.wikimedia.org/wiki/File:Stanley_Seawall.jpg"
-    },
-    {
-      "name": "hotel-window-view.jpg",
-      "url": "https://upload.wikimedia.org/wikipedia/commons/3/31/Vancouver_Skyline_September.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
-      "sha256": "44a29cab7fcaf3d67fae6ee7ce4a242ce12ea9266391f2424d3325e9daec14cf",
-      "size": 1749640,
-      "license": "CC0",
-      "author": "Suspencewl",
-      "source": "https://commons.wikimedia.org/wiki/File:Vancouver_Skyline_September.jpg"
-    },
-    {
-      "name": "gastown-at-night.jpg",
-      "url": "https://upload.wikimedia.org/wikipedia/commons/7/73/Downtown_Vancouver_%28217286275%29.jpeg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
-      "sha256": "e96b5d60bacbc19aedc3efa4f9a86da19e977b51719362494bf3b027a9bdca22",
-      "size": 1160578,
-      "license": "CC0",
-      "author": "Aditya Chinchure",
-      "source": "https://commons.wikimedia.org/wiki/File:Downtown_Vancouver_(217286275).jpeg"
-    },
-    {
       "name": "breakfast.jpg",
       "url": "https://upload.wikimedia.org/wikipedia/commons/9/93/Coffee_and_breakfast_sandwich.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
       "sha256": "695feb3d3543a2bb5279becd5be761730fb1c68c90038115417f02989cf77eb2",
@@ -108,6 +72,42 @@
       "license": "CC0",
       "author": "Ferdinand Stöhr fellowferdi",
       "source": "https://commons.wikimedia.org/wiki/File:Sunset_in_Vancouver_(Unsplash).jpg"
+    },
+    {
+      "name": "myeongdong-at-night.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/a/aa/Myeongdong_at_night_02.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "510ca07553c22a2155f664636c3e1536d6488e967d1a7724aa196d334fd51b07",
+      "size": 1353161,
+      "license": "Public domain",
+      "author": "Abasaa",
+      "source": "https://commons.wikimedia.org/wiki/File:Myeongdong_at_night_02.JPG"
+    },
+    {
+      "name": "gwanghwamun-gate.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/2/27/Gwanghwamun_Gate_%28%EA%B4%91%ED%99%94%EB%AC%B8%29%2C_Seoul%2C_South_Korea_%28Unsplash%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "beddc05c94d85cf19953f1fdfbf8119cf107ae250ece1eb154b08d2169b4ea9d",
+      "size": 9300205,
+      "license": "CC0",
+      "author": "Timothy Ries wacowacko",
+      "source": "https://commons.wikimedia.org/wiki/File:Gwanghwamun_Gate_(%EA%B4%91%ED%99%94%EB%AC%B8),_Seoul,_South_Korea_(Unsplash).jpg"
+    },
+    {
+      "name": "bukchon-hanok-village.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/30/Bukchon_Hanok_Village_07.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "d733bfacb41fac75f6566fb7d04fc957f9dfed2d304626c8e178eb1e581ac184",
+      "size": 6600511,
+      "license": "CC0",
+      "author": "Bgag",
+      "source": "https://commons.wikimedia.org/wiki/File:Bukchon_Hanok_Village_07.jpg"
+    },
+    {
+      "name": "hotel-window-view.jpg",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Seoul_and_N_Seoul_Tower.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+      "sha256": "692bcfb808eb08442e662f5f534d1820dad8b70799dd336ee849c7621e670ecd",
+      "size": 1541766,
+      "license": "Public domain",
+      "author": "Agsftw",
+      "source": "https://commons.wikimedia.org/wiki/File:Seoul_and_N_Seoul_Tower.jpg"
     }
   ]
 }
