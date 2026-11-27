@@ -3,8 +3,18 @@ import { useEffect, useState } from 'react'
 
 const MAX_IN_FLIGHT = 6
 const cache = new Map<string, ThumbnailResult>()
-const queue: { id: string; resolve: (r: ThumbnailResult | null) => void; cancelled: boolean }[] = []
+const queue: Job[] = []
 let inFlight = 0
+/** Bumped when the cache is cleared: answers for the previous folder must not refill it. */
+let epoch = 0
+
+interface Job {
+  id: string
+  epoch: number
+  resolve: (result: ThumbnailResult | null) => void
+  /** The tile that asked is gone: its answer must not land in the tile that replaced it. */
+  cancelled: boolean
+}
 
 function pump(): void {
   while (inFlight < MAX_IN_FLIGHT && queue.length > 0) {
@@ -15,10 +25,12 @@ function pump(): void {
       .getThumbnail({ id: job.id })
       .then(
         (result) => {
-          cache.set(job.id, result)
-          job.resolve(result)
+          if (job.epoch === epoch) cache.set(job.id, result)
+          if (!job.cancelled) job.resolve(result)
         },
-        () => job.resolve(null),
+        () => {
+          if (!job.cancelled) job.resolve(null)
+        },
       )
       .finally(() => {
         inFlight -= 1
@@ -28,6 +40,7 @@ function pump(): void {
 }
 
 export function clearThumbnailCache(): void {
+  epoch += 1
   cache.clear()
   for (const job of queue) job.cancelled = true
   queue.length = 0
@@ -46,7 +59,7 @@ export function useThumbnail(id: string): ThumbnailResult | null | undefined {
       return
     }
     setResult(undefined)
-    const job = { id, resolve: setResult, cancelled: false }
+    const job: Job = { id, epoch, resolve: setResult, cancelled: false }
     queue.push(job)
     pump()
     return () => {
