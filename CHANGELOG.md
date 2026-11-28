@@ -1,5 +1,11 @@
 # stecknadel
 
+## 0.1.3
+
+### Patch Changes
+
+- On macOS, Stecknadel now asks for local network access the first time it connects to a Dawarich server at home. Before, macOS could mix it up with other Electron apps and block the connection without asking. ([`fbcc73a`](https://github.com/LekoArts/stecknadel/commit/fbcc73a3fa089e993473944c89782bb05d8cf35d))
+
 ## 0.1.2
 
 ### Patch Changes
