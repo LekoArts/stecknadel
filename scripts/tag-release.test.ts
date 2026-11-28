@@ -72,8 +72,9 @@ process.stdout.write(a.stdout ?? ''); process.stderr.write(a.stderr ?? ''); proc
   return { work, commit, gh, run, remoteTags }
 }
 
-const assets = (version: string, drop?: string) => ({
+const assets = (version: string, drop?: string, isDraft = false) => ({
   stdout: JSON.stringify({
+    isDraft,
     assets: requiredAssets(version)
       .filter((n: string) => n !== drop)
       .map((name: string) => ({ name })),
@@ -108,6 +109,13 @@ describe.skipIf(process.platform === 'win32')('tag-release', () => {
     const r = repo('0.1.0')
     r.run()
     r.gh({ ...assets('0.1.0', 'latest-mac.yml') })
+    expect(r.run()).toMatchObject({ code: 0, output: 'tag=v0.1.0\ntag=v0.1.0\n' })
+  })
+
+  it('a draft release with every asset is re-emitted, so it gets published', () => {
+    const r = repo('0.1.0')
+    r.run()
+    r.gh(assets('0.1.0', undefined, true))
     expect(r.run()).toMatchObject({ code: 0, output: 'tag=v0.1.0\ntag=v0.1.0\n' })
   })
 

@@ -134,8 +134,8 @@ Use this when no clock setting can help, for example for a photo taken on a plan
 
 ### Copy another photo's position
 
-1. Select a photo that is in the right place and click **Copy location**.
-2. Click the pin of the photo that should get the same position.
+1. Select the photo that needs a position and click **Copy location**.
+2. Click the pin of a photo that is in the right place. The selected photo gets its position.
 
 ## Write the positions
 
@@ -170,7 +170,7 @@ Click the history button (a clock with an arrow) next to **Write** to see **Rece
 
 A file you edited in another app after the write is left alone.
 
-If Stecknadel stopped in the middle of a write, for example because the computer shut down, the write is marked "Stopped before it finished". You can restore it the same way.
+If Stecknadel stopped in the middle of a write, for example because the computer shut down, the write is marked "Stopped before it finished". Stecknadel cannot tell which of those files you edited since, so it asks before it restores them. If you confirm, it puts back the old values in every file of that write, even ones you changed afterwards, and removes the sidecar files the write created.
 
 ## The track
 
@@ -292,8 +292,8 @@ pnpm dev        # start the app with live reload
 | `pnpm test:e2e`      | Run the end-to-end tests against the packaged app. Build it first: `pnpm build && pnpm package:mac:dir`.                    |
 | `pnpm make-fixtures` | Generate the test JPEGs.                                                                                                    |
 | `pnpm make-demo`     | Create a made-up trip from San Francisco to Seoul with a GPX track and photos for every case. It prints the folder to open. |
-| `pnpm package:mac`   | Build the macOS disk image.                                                                                                 |
-| `pnpm package:win`   | Build the Windows installer and portable app. Run it on Windows.                                                            |
+| `pnpm package:mac`   | Build the macOS disk image. Run `pnpm build` first.                                                                         |
+| `pnpm package:win`   | Build the Windows installer and portable app. Run `pnpm build` first, on Windows.                                           |
 
 ### Release
 

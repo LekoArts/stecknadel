@@ -47,7 +47,7 @@ export function tagRelease({ version, run, output }) {
     throw new Error(`${tag} points at a commit with version ${tagged}, not ${version}`)
   }
 
-  const view = run('gh', ['release', 'view', tag, '--json', 'assets'])
+  const view = run('gh', ['release', 'view', tag, '--json', 'assets,isDraft'])
   if (view.code !== 0) {
     if (!view.stderr.includes('release not found')) {
       throw new Error(`gh release view ${tag} failed: ${view.stderr.trim()}`)
@@ -55,8 +55,10 @@ export function tagRelease({ version, run, output }) {
     output(`tag=${tag}`)
     return tag
   }
-  const have = new Set(JSON.parse(view.stdout).assets.map((a) => a.name))
-  if (requiredAssets(version).every((name) => have.has(name))) return null
+  const release = JSON.parse(view.stdout)
+  const have = new Set(release.assets.map((a) => a.name))
+  // A draft isn't released yet, even with every file: the publish job completes and publishes it.
+  if (!release.isDraft && requiredAssets(version).every((name) => have.has(name))) return null
   output(`tag=${tag}`)
   return tag
 }

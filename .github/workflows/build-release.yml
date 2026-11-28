@@ -25,6 +25,12 @@ on:
 permissions:
   contents: read
 
+# One build per tag at a time, so an automatic release and a manual retry can't interleave uploads.
+# Dry runs without a tag are keyed by run and never wait.
+concurrency:
+  group: build-release-${{ inputs.tag || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
@@ -148,6 +154,8 @@ jobs:
         run: |
           if gh release view "$TAG" > /dev/null 2> err.txt; then
             gh release upload "$TAG" artifacts/* --clobber
+            # A retry may find a draft someone left; every file is now there, so publish it.
+            gh release edit "$TAG" --draft=false
           elif grep -q "release not found" err.txt; then
             gh release create "$TAG" artifacts/* --title "$TAG" --notes-file notes.md --verify-tag
           else
