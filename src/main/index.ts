@@ -38,6 +38,10 @@ import { installKind, startUpdates } from './updates'
 // Lets the packaged-app tests run against a throwaway profile.
 if (process.env.STECKNADEL_USER_DATA) app.setPath('userData', process.env.STECKNADEL_USER_DATA)
 
+// One instance per profile: writes, restores and journals are serialized only within a process.
+// Electron keys the lock on the userData path, so test profiles don't collide.
+if (!process.env.STECKNADEL_SMOKE_FILE && !app.requestSingleInstanceLock()) app.exit(0)
+
 protocol.registerSchemesAsPrivileged([
   { scheme: THUMB_SCHEME, privileges: { standard: true, secure: true } },
   {
@@ -165,6 +169,12 @@ async function smokeAndExit(file: string): Promise<void> {
   }
   app.exit(code)
 }
+
+app.on('second-instance', () => {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
+})
 
 app.on('before-quit', () => {
   void exiftool.end()

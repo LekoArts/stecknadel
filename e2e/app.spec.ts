@@ -1,5 +1,9 @@
+import { spawn } from 'node:child_process'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
-import { launchApp } from './helpers/app'
+import { launchApp, packagedDirExecutable } from './helpers/app'
 
 test('window opens with the security baseline', async () => {
   // A normal launch: no test-only debug surface.
@@ -81,5 +85,35 @@ test('window opens with the security baseline', async () => {
     ).rejects.toThrow(/invalid input/)
   } finally {
     await app.close()
+  }
+})
+
+test('a second launch on the same profile exits and leaves the first one running', async () => {
+  const userData = await mkdtemp(join(tmpdir(), 'steck-single-'))
+  const app = await launchApp({ STECKNADEL_USER_DATA: userData })
+  try {
+    const page = await app.firstWindow()
+    await expect(page.getByRole('heading', { name: 'Stecknadel' })).toBeVisible()
+
+    const second = spawn(process.env.STECKNADEL_APP_PATH || packagedDirExecutable(), [], {
+      env: { ...process.env, STECKNADEL_E2E: '1', STECKNADEL_USER_DATA: userData },
+      stdio: 'ignore',
+    })
+    const code = await new Promise<number | null>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        second.kill()
+        reject(new Error('second instance kept running'))
+      }, 15_000)
+      second.on('exit', (c) => {
+        clearTimeout(timer)
+        resolve(c)
+      })
+    })
+    expect(code).toBe(0)
+    await expect(page.getByRole('heading', { name: 'Stecknadel' })).toBeVisible()
+    expect(app.windows()).toHaveLength(1)
+  } finally {
+    await app.close()
+    await rm(userData, { recursive: true, force: true })
   }
 })
