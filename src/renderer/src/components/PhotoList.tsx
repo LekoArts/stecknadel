@@ -9,7 +9,7 @@ import { type MatchStatus, STATUS_LABELS, statusDetail } from '@shared/match/sta
 import type { PhotoUtc } from '@shared/time/toUtc'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown, ArrowUp } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const ROW_HEIGHT = 36
 /** The sticky header row, border included: rows start below it and scroll under it. */
@@ -18,7 +18,35 @@ const HEADER_HEIGHT = 32
 interface Column {
   key: SortKey
   label: string
-  width: string
+}
+
+const WIDTHS_KEY = 'stecknadel.listColumns.v1'
+/** Pixel widths. Name is a minimum: it also takes the space the others leave. */
+const DEFAULT_WIDTHS: Record<SortKey, number> = {
+  name: 128,
+  camera: 160,
+  captured: 208,
+  utc: 152,
+  status: 144,
+}
+const MIN_WIDTH = 64
+const MAX_WIDTH = 640
+const clampWidth = (w: number): number => Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w)))
+
+function loadWidths(): Record<SortKey, number> {
+  const widths = { ...DEFAULT_WIDTHS }
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(WIDTHS_KEY) ?? 'null')
+    if (saved && typeof saved === 'object') {
+      for (const key of Object.keys(widths) as SortKey[]) {
+        const w = (saved as Record<string, unknown>)[key]
+        if (typeof w === 'number' && Number.isFinite(w)) widths[key] = clampWidth(w)
+      }
+    }
+  } catch {
+    // Unreadable: defaults.
+  }
+  return widths
 }
 
 interface PhotoListProps {
@@ -45,17 +73,24 @@ export function PhotoList({
   onSelect,
 }: PhotoListProps): React.JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [widths, setWidths] = useState(loadWidths)
+  useEffect(() => {
+    localStorage.setItem(WIDTHS_KEY, JSON.stringify(widths))
+  }, [widths])
+  const resize = (key: SortKey, width: number): void =>
+    setWidths((w) => ({ ...w, [key]: clampWidth(width) }))
+
   const columns: Column[] = [
-    { key: 'name', label: 'Name', width: 'minmax(8rem,1fr)' },
-    ...(showCamera
-      ? [{ key: 'camera' as const, label: 'Camera', width: 'minmax(6rem,10rem)' }]
-      : []),
-    { key: 'captured', label: 'Captured', width: '11.5rem' },
-    { key: 'utc', label: 'UTC', width: '9.5rem' },
-    ...(statuses.size ? [{ key: 'status' as const, label: 'Status', width: '9rem' }] : []),
+    { key: 'name', label: 'Name' },
+    ...(showCamera ? [{ key: 'camera' as const, label: 'Camera' }] : []),
+    { key: 'captured', label: 'Captured' },
+    { key: 'utc', label: 'UTC' },
+    ...(statuses.size ? [{ key: 'status' as const, label: 'Status' }] : []),
   ]
   // Thumbnail, then the sortable columns.
-  const template = `2.5rem ${columns.map((c) => c.width).join(' ')}`
+  const template = `2.5rem ${columns
+    .map((c) => (c.key === 'name' ? `minmax(${widths.name}px,1fr)` : `${widths[c.key]}px`))
+    .join(' ')}`
 
   const virtualizer = useVirtualizer({
     count: photos.length,
@@ -102,6 +137,7 @@ export function PhotoList({
             {columns.map((c) => (
               <th
                 key={c.key}
+                className="relative"
                 aria-sort={
                   sort?.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'
                 }
@@ -119,6 +155,12 @@ export function PhotoList({
                       <ArrowDown className="size-3" />
                     ))}
                 </button>
+                <ResizeHandle
+                  label={c.label}
+                  width={widths[c.key]}
+                  onResize={(w) => resize(c.key, w)}
+                  onReset={() => resize(c.key, DEFAULT_WIDTHS[c.key])}
+                />
               </th>
             ))}
           </tr>
@@ -251,5 +293,61 @@ function RowThumb({ id }: { id: string }): React.JSX.Element {
         />
       )}
     </span>
+  )
+}
+
+/** Drag (or arrow keys) to resize the column; double-click resets it. */
+function ResizeHandle({
+  label,
+  width,
+  onResize,
+  onReset,
+}: {
+  label: string
+  width: number
+  onResize: (width: number) => void
+  onReset: () => void
+}): React.JSX.Element {
+  const drag = useRef<{ x: number; width: number } | null>(null)
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a focusable splitter, which <hr> can't be
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Resize ${label} column`}
+      aria-valuenow={width}
+      aria-valuemin={MIN_WIDTH}
+      aria-valuemax={MAX_WIDTH}
+      tabIndex={0}
+      title="Drag to resize, double-click to reset"
+      className="group absolute top-0 -right-1.5 z-10 flex h-full w-3 cursor-col-resize touch-none justify-center outline-none"
+      onPointerDown={(e) => {
+        e.preventDefault()
+        e.currentTarget.setPointerCapture(e.pointerId)
+        // From the drawn width: Name may be wider than its minimum.
+        const drawn = e.currentTarget.parentElement?.getBoundingClientRect().width ?? width
+        drag.current = { x: e.clientX, width: drawn }
+      }}
+      onPointerMove={(e) => {
+        if (drag.current) onResize(drag.current.width + e.clientX - drag.current.x)
+      }}
+      onPointerUp={() => {
+        drag.current = null
+      }}
+      onLostPointerCapture={() => {
+        drag.current = null
+      }}
+      onDoubleClick={onReset}
+      onKeyDown={(e) => {
+        const step = e.shiftKey ? 32 : 8
+        if (e.key === 'ArrowLeft') onResize(width - step)
+        else if (e.key === 'ArrowRight') onResize(width + step)
+        else if (e.key === 'Home' || e.key === 'Delete') onReset()
+        else return
+        e.preventDefault()
+      }}
+    >
+      <span className="my-2 w-px bg-border group-hover:bg-foreground/40 group-focus-visible:w-0.5 group-focus-visible:bg-ring" />
+    </div>
   )
 }

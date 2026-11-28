@@ -335,6 +335,36 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
       'true',
     )
 
+    // Columns resize by dragging their edge, by arrow keys, and reset on double-click.
+    const captured = page.getByRole('columnheader', { name: 'Captured' })
+    const capturedWidth = async (): Promise<number> => (await captured.boundingBox())?.width ?? 0
+    const before = await capturedWidth()
+    const edge = await captured.getByRole('separator').boundingBox()
+    if (!edge) throw new Error('no resize handle')
+    await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(edge.x + edge.width / 2 + 60, edge.y + edge.height / 2, { steps: 5 })
+    await page.mouse.up()
+    expect(await capturedWidth()).toBeCloseTo(before + 60, 0)
+    // The rows follow the header (thumbnail, name, camera, captured).
+    const cell = await rows.first().getByRole('cell').nth(3).boundingBox()
+    expect(cell?.width).toBeCloseTo(before + 60, 0)
+    await captured.getByRole('separator').press('ArrowLeft')
+    expect(await capturedWidth()).toBeCloseTo(before + 52, 0)
+    await captured.getByRole('separator').dblclick()
+    expect(await capturedWidth()).toBeCloseTo(before, 0)
+
+    // The grid's thumbnail size slider.
+    await toolbar.getByRole('button', { name: 'Grid' }).click()
+    const tile = page.getByTestId('photo-tile').first()
+    expect((await tile.boundingBox())?.width).toBeCloseTo(184, 0)
+    await toolbar.getByRole('slider', { name: 'Thumbnail size' }).press('End')
+    await expect.poll(async () => (await tile.boundingBox())?.width).toBeCloseTo(280, 0)
+    await toolbar.getByRole('slider', { name: 'Thumbnail size' }).press('Home')
+    await expect.poll(async () => (await tile.boundingBox())?.width).toBeCloseTo(120, 0)
+    await toolbar.getByRole('button', { name: 'List' }).click()
+    await expect(toolbar.getByRole('slider')).toHaveCount(0)
+
     // A click beside the rows clears the selection.
     await rows.first().click()
     await expect(
