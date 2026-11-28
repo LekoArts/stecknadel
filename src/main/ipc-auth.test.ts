@@ -58,6 +58,7 @@ beforeAll(async () => {
         },
       } as unknown as ThumbnailCache,
       appInfo: async () => ({ version: '0.0.0', exiftoolVersion: '13.64', platform: 'darwin' }),
+      updates: { state: () => ({ kind: 'none' }), install: () => {} },
       settings: new SettingsStore(join(dir, 'userData/settings.json')),
       secrets: new Secrets(join(dir, 'userData/secrets.bin'), {
         isEncryptionAvailable: () => true,

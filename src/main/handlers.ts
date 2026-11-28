@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { effectivePhoto } from '@shared/effective'
-import type { DawarichState, IpcEventName, IpcEvents, IpcOutput } from '@shared/ipc'
+import type { DawarichState, IpcEventName, IpcEvents, IpcOutput, UpdateState } from '@shared/ipc'
 import type { MapSource, SettingsView } from '@shared/settings'
 import { summarizeTrack, type Track } from '@shared/track/types'
 import { reportCsv, type WriteReport } from '@shared/write'
@@ -28,6 +28,7 @@ export interface HandlerDeps {
   thumbs: ThumbnailCache
   cameraNames: CameraNames
   appInfo: () => Promise<IpcOutput<'getAppInfo'>>
+  updates: { state: () => UpdateState; install: () => void }
   settings: SettingsStore
   secrets: Secrets
   preview: PreviewEngine
@@ -113,6 +114,8 @@ export function createHandlers(deps: HandlerDeps): Handlers {
 
   return {
     getAppInfo: () => deps.appInfo(),
+    getUpdate: async () => deps.updates.state(),
+    installUpdate: async () => deps.updates.install(),
     openFolder: async () => {
       const folder = await deps.chooseFolder()
       if (!folder) return null

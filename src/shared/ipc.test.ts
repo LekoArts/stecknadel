@@ -21,6 +21,8 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
     valid: [undefined],
     invalid: [null, {}, 'x', 1, [], { path: '/etc/passwd' }],
   },
+  getUpdate: { valid: [undefined], invalid: [null, {}, 'x'] },
+  installUpdate: { valid: [undefined], invalid: [null, {}, 'x'] },
   openFolder: {
     valid: [undefined],
     invalid: [null, {}, '/Users', { path: '/Users' }, { folder: '/Users' }],

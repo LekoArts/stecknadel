@@ -51,6 +51,15 @@ export const ipcContract = {
       platform: z.enum(['darwin', 'win32', 'linux']),
     }),
   },
+  getUpdate: {
+    input: z.undefined(),
+    output: z.custom<UpdateState>(),
+  },
+  /** Quits and installs a downloaded update (NSIS installs only). */
+  installUpdate: {
+    input: z.undefined(),
+    output: z.void(),
+  },
   /** Shows the folder picker and loads the chosen folder; null when cancelled or superseded. */
   openFolder: {
     input: z.undefined(),
@@ -195,6 +204,12 @@ export const ipcNames = Object.keys(ipcContract) as IpcName[]
 
 export const ipcChannel = (name: IpcName): string => `stecknadel:${name}`
 
+/** A newer version: on GitHub (portable, macOS) or downloaded and ready to install (NSIS). */
+export type UpdateState =
+  | { kind: 'none' }
+  | { kind: 'available'; version: string; url: string }
+  | { kind: 'ready'; version: string }
+
 /** A View menu panel command. */
 export type PanelCommand = 'cameras' | 'photos' | 'metadata' | 'map-only'
 
@@ -204,6 +219,7 @@ export interface IpcEvents {
   trackProgress: { page: number; totalPages: number }
   panel: PanelCommand
   writeProgress: WriteProgress
+  update: UpdateState
 }
 export type IpcEventName = keyof IpcEvents
 export const ipcEventNames: IpcEventName[] = [
@@ -211,6 +227,7 @@ export const ipcEventNames: IpcEventName[] = [
   'trackProgress',
   'panel',
   'writeProgress',
+  'update',
 ]
 export const ipcEventChannel = (name: IpcEventName): string => `stecknadel:event:${name}`
 

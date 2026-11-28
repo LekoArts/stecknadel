@@ -2,7 +2,13 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { DEBUG_PREVIEW_CHANNEL, ipcEventChannel, type PanelCommand } from '@shared/ipc'
+import {
+  DEBUG_PREVIEW_CHANNEL,
+  type IpcEventName,
+  type IpcEvents,
+  ipcEventChannel,
+  type PanelCommand,
+} from '@shared/ipc'
 import {
   app,
   BrowserWindow,
@@ -27,6 +33,7 @@ import { Secrets } from './secrets'
 import { SettingsStore } from './settings'
 import { runSmoke } from './smoke'
 import { type ImageOps, THUMB_SCHEME, ThumbnailCache } from './thumbs'
+import { installKind, startUpdates } from './updates'
 
 // Lets the packaged-app tests run against a throwaway profile.
 if (process.env.STECKNADEL_USER_DATA) app.setPath('userData', process.env.STECKNADEL_USER_DATA)
@@ -77,11 +84,13 @@ function isAppUrl(url: string): boolean {
   return url.split('#')[0] === pathToFileURL(rendererIndex).href
 }
 
-function sendPanel(command: PanelCommand): void {
+function send<E extends IpcEventName>(event: E, payload: IpcEvents[E]): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(ipcEventChannel('panel'), command)
+    mainWindow.webContents.send(ipcEventChannel(event), payload)
   }
 }
+
+const sendPanel = (command: PanelCommand): void => send('panel', command)
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -210,6 +219,23 @@ app.whenReady().then(async () => {
     return servePmtiles(request, source.kind === 'pmtiles' ? source.path : null)
   })
 
+  const updates = startUpdates({
+    kind: installKind({ platform: process.platform, packaged: app.isPackaged, vars: process.env }),
+    version: app.getVersion(),
+    fetchJson: async (url) => {
+      const res = await fetch(url, {
+        headers: { accept: 'application/vnd.github+json', 'user-agent': 'Stecknadel' },
+        redirect: 'error',
+      })
+      if (!res.ok) throw new Error(`GitHub answered ${res.status}`)
+      return res.json()
+    },
+    nsis: async () => (await import('electron-updater')).autoUpdater,
+    onState: (state) => send('update', state),
+    log: (message) => console.warn(message),
+  })
+  app.on('will-quit', () => updates.stop())
+
   registerIpc(
     createHandlers({
       et: exiftool,
@@ -250,11 +276,8 @@ app.whenReady().then(async () => {
         return result.canceled ? null : (result.filePath ?? null)
       },
       journalDir: join(userData, 'journal'),
-      send: (event, payload) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(ipcEventChannel(event), payload)
-        }
-      },
+      updates,
+      send,
     }),
     () => mainWindow,
     isAppUrl,

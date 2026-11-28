@@ -60,6 +60,7 @@ import type { JournalView } from '@shared/write'
 import { FolderOpen, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDefaultLayout } from 'react-resizable-panels'
+import { UpdateNotice } from './components/UpdateNotice'
 
 /** The map and its overlays need this much room; it never collapses, so the panel toggles stay reachable. */
 const CENTER_MIN_WIDTH = 360
@@ -475,323 +476,329 @@ export default function App(): React.JSX.Element {
   const loading = load.status === 'loading'
 
   return (
-    <ResizablePanelGroup
-      id="outer"
-      orientation="horizontal"
-      className="bg-background text-sm"
-      defaultLayout={outerLayout.defaultLayout}
-      onLayoutChanged={(layout, meta) => {
-        outerLayout.onLayoutChanged(layout, meta)
-        if (meta.isUserInteraction) panels.rememberSizes(['cameras', 'metadata'])
-      }}
-    >
-      <ResizablePanel
-        id="cameras"
-        data-testid="panel-cameras"
-        panelRef={panels.refs.cameras}
-        collapsible
-        minSize={PANEL_MIN.cameras}
-        defaultSize={PANEL_DEFAULT.cameras}
-        groupResizeBehavior="preserve-pixel-size"
-        onResize={panels.onResize('cameras')}
+    <>
+      <ResizablePanelGroup
+        id="outer"
+        orientation="horizontal"
+        className="bg-background text-sm"
+        defaultLayout={outerLayout.defaultLayout}
+        onLayoutChanged={(layout, meta) => {
+          outerLayout.onLayoutChanged(layout, meta)
+          if (meta.isUserInteraction) panels.rememberSizes(['cameras', 'metadata'])
+        }}
       >
-        <aside
-          aria-label="Cameras"
-          data-panel="cameras"
-          // Collapsed, it keeps its state (an open Dawarich fetch) but leaves the tab order.
-          inert={!panels.open.cameras}
-          className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground"
+        <ResizablePanel
+          id="cameras"
+          data-testid="panel-cameras"
+          panelRef={panels.refs.cameras}
+          collapsible
+          minSize={PANEL_MIN.cameras}
+          defaultSize={PANEL_DEFAULT.cameras}
+          groupResizeBehavior="preserve-pixel-size"
+          onResize={panels.onResize('cameras')}
         >
-          <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-            <h2 className="flex-1 truncate font-medium" title={library?.folderName}>
-              {library?.folderName ?? 'Cameras'}
-            </h2>
-            {library ? (
-              // The folder name says what's open; the icon is enough to open another.
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                aria-label="Open folder"
-                title="Open folder"
-                onClick={() => void openFolder()}
-                disabled={loading}
-              >
-                <FolderOpen />
-              </Button>
-            ) : (
-              <Button size="sm" onClick={() => void openFolder()} disabled={loading}>
-                <FolderOpen />
-                Open folder
-              </Button>
-            )}
-            {settings && (
-              <SettingsDialog
-                settings={settings}
-                onSaved={setSettings}
-                onPmtilesChosen={(next) => {
-                  setSettings(next)
-                  setMapRevision((r) => r + 1)
-                }}
-              />
-            )}
-          </div>
-          {library && (
-            <div className="min-h-0 flex-1 overflow-y-auto pb-4">
-              <CameraList
-                cameras={library.cameras}
-                timeLabels={timeLabels}
-                total={library.photos.length}
-                selectedKey={cameraFilter}
-                onSelect={setCameraFilter}
-                onRename={renameCamera}
-              />
-              {selectedCamera && (
-                <div className="mt-3">
-                  <CameraTimePanel
-                    key={selectedCamera.key}
-                    camera={selectedCamera}
-                    settings={settingsFor(selectedCamera.key)}
-                    origin={originOf(selectedCamera.key)}
-                    tripZones={tripZones}
-                    copySources={library.cameras
-                      .filter((c) => {
-                        const stats = cameraStats.get(c.key)
-                        return (
-                          c.key !== selectedCamera.key &&
-                          originOf(c.key) !== 'default' &&
-                          !(stats && allRecorded(settingsFor(c.key), stats, c.count))
-                        )
-                      })
-                      .map((c) => ({
-                        key: c.key,
-                        name: c.name,
-                        label: timeLabels.get(c.key)?.text ?? '',
-                      }))}
-                    onCopyFrom={(key) =>
-                      setTimeSettings((current) => ({
-                        ...current,
-                        [selectedCamera.key]: copyZones(
-                          settingsFor(selectedCamera.key),
-                          settingsFor(key),
-                        ),
-                      }))
-                    }
-                    stats={
-                      cameraStats.get(selectedCamera.key) ?? {
-                        noTime: 0,
-                        ambiguous: 0,
-                        conflict: 0,
-                        recorded: 0,
-                        offsets: [],
-                        first: null,
-                      }
-                    }
-                    selectedCaptureTime={
-                      selected?.cameraKey === selectedCamera.key ? selected.captureTime : null
-                    }
-                    onChange={(next) =>
-                      setTimeSettings((current) => ({ ...current, [selectedCamera.key]: next }))
-                    }
-                  />
-                </div>
+          <aside
+            aria-label="Cameras"
+            data-panel="cameras"
+            // Collapsed, it keeps its state (an open Dawarich fetch) but leaves the tab order.
+            inert={!panels.open.cameras}
+            className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground"
+          >
+            <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+              <h2 className="flex-1 truncate font-medium" title={library?.folderName}>
+                {library?.folderName ?? 'Cameras'}
+              </h2>
+              {library ? (
+                // The folder name says what's open; the icon is enough to open another.
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Open folder"
+                  title="Open folder"
+                  onClick={() => void openFolder()}
+                  disabled={loading}
+                >
+                  <FolderOpen />
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => void openFolder()} disabled={loading}>
+                  <FolderOpen />
+                  Open folder
+                </Button>
+              )}
+              {settings && (
+                <SettingsDialog
+                  settings={settings}
+                  onSaved={setSettings}
+                  onPmtilesChosen={(next) => {
+                    setSettings(next)
+                    setMapRevision((r) => r + 1)
+                  }}
+                />
               )}
             </div>
-          )}
-          <div className="mt-auto">
-            <TrackPanel
-              track={track}
-              dawarich={dawarich}
-              defaultRange={fetchRange}
-              fetchRequest={fetchRequest}
-              onTrack={setTrack}
-              onDawarich={setDawarich}
-            />
-          </div>
-        </aside>
-      </ResizablePanel>
-      <ResizableHandle />
-
-      <ResizablePanel id="center" data-testid="panel-center" minSize={CENTER_MIN_WIDTH}>
-        <ResizablePanelGroup
-          id="center-split"
-          orientation="vertical"
-          defaultLayout={centerLayout.defaultLayout}
-          onLayoutChanged={(layout, meta) => {
-            centerLayout.onLayoutChanged(layout, meta)
-            if (meta.isUserInteraction) panels.rememberSizes(['photos'])
-          }}
-        >
-          <ResizablePanel id="map" data-testid="panel-map" minSize={MAP_MIN_HEIGHT}>
-            <main aria-label="Map" className="relative h-full min-h-0 bg-muted/40">
-              <MapPanel
-                mapSource={settings?.mapSource ?? null}
-                mapRevision={mapRevision}
-                library={library}
-                hasTrack={!!track && track.count > 0}
-                geometry={geometry}
-                preview={preview}
-                statuses={statuses}
-                utcs={utcs}
-                scope={cameraScope}
-                loadError={loadError}
-                retrying={retrying.length > 0}
-                onRetry={retryFailed}
-                selectedId={selectedId}
-                onSelect={selectFromMap}
-                onApplyOffset={applyOffset}
-                onManual={setPlacement}
-              />
-              <div className="pointer-events-none absolute top-3 right-3 z-10 flex items-start gap-2">
-                <RecoveryMenu writes={writes} onChanged={reloadAfterRestore} />
-                {settings && library && (
-                  <WriteDialog
-                    snapshot={preview.snapshot}
-                    previewRunning={preview.running}
-                    writing={settings.writing}
-                    onWritten={(result) => showWritten(result.library)}
-                  />
-                )}
-                <PanelToggles panels={panels} />
-              </div>
-            </main>
-          </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel
-            id="photos"
-            data-testid="panel-photos"
-            panelRef={panels.refs.photos}
-            collapsible
-            minSize={PANEL_MIN.photos}
-            defaultSize={PANEL_DEFAULT.photos}
-            groupResizeBehavior="preserve-pixel-size"
-            onResize={panels.onResize('photos')}
-          >
-            {panels.open.photos && (
-              <section
-                aria-label="Photos"
-                data-panel="photos"
-                className="flex h-full min-h-0 flex-col"
-                aria-busy={loading}
-              >
-                {outside.length > 0 &&
-                  track?.source.kind === 'dawarich' &&
-                  load.status !== 'loading' && (
-                    <div
-                      role="status"
-                      data-testid="outside-range"
-                      className="flex shrink-0 items-center gap-2 border-b bg-amber-50 px-4 py-1.5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
-                    >
-                      <TriangleAlert className="size-4 shrink-0" />
-                      <span className="flex-1">
-                        The track doesn’t cover {outside.length.toLocaleString()}{' '}
-                        {outside.length === 1 ? 'photo' : 'photos'}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7"
-                        onClick={() => {
-                          const source = track.source as { start: string; end: string }
-                          panels.show('cameras')
-                          setFetchRequest({
-                            range: rangeCovering(outside, { start: source.start, end: source.end }),
-                          })
-                        }}
-                      >
-                        Fetch wider range
-                      </Button>
-                    </div>
-                  )}
-                {load.status === 'loading' && load.progress ? (
-                  // While the folder dialog is open there is no progress yet: keep showing the current library.
-                  <LoadingState progress={load.progress} />
-                ) : load.status === 'error' ? (
-                  <p className="px-4 py-3 text-destructive">
-                    Couldn’t open the folder: {load.message}
-                  </p>
-                ) : !library ? null : library.photos.length === 0 ? (
-                  <p className="px-4 py-3 text-muted-foreground">
-                    No JPEG, HEIC or RAW photos in {library.folderName}.
-                  </p>
-                ) : (
-                  <>
-                    <PhotosToolbar
-                      view={view}
-                      onView={(next) => {
-                        setView(next)
-                        localStorage.setItem(VIEW_KEY, next)
-                      }}
-                      cameras={panels.open.cameras ? [] : library.cameras}
-                      cameraFilter={cameraFilter}
-                      onCameraFilter={setCameraFilter}
-                      groupCounts={groupCounts}
-                      statusFilter={activeStatusFilter}
-                      onStatusFilter={setStatusFilter}
+            {library && (
+              <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+                <CameraList
+                  cameras={library.cameras}
+                  timeLabels={timeLabels}
+                  total={library.photos.length}
+                  selectedKey={cameraFilter}
+                  onSelect={setCameraFilter}
+                  onRename={renameCamera}
+                />
+                {selectedCamera && (
+                  <div className="mt-3">
+                    <CameraTimePanel
+                      key={selectedCamera.key}
+                      camera={selectedCamera}
+                      settings={settingsFor(selectedCamera.key)}
+                      origin={originOf(selectedCamera.key)}
+                      tripZones={tripZones}
+                      copySources={library.cameras
+                        .filter((c) => {
+                          const stats = cameraStats.get(c.key)
+                          return (
+                            c.key !== selectedCamera.key &&
+                            originOf(c.key) !== 'default' &&
+                            !(stats && allRecorded(settingsFor(c.key), stats, c.count))
+                          )
+                        })
+                        .map((c) => ({
+                          key: c.key,
+                          name: c.name,
+                          label: timeLabels.get(c.key)?.text ?? '',
+                        }))}
+                      onCopyFrom={(key) =>
+                        setTimeSettings((current) => ({
+                          ...current,
+                          [selectedCamera.key]: copyZones(
+                            settingsFor(selectedCamera.key),
+                            settingsFor(key),
+                          ),
+                        }))
+                      }
+                      stats={
+                        cameraStats.get(selectedCamera.key) ?? {
+                          noTime: 0,
+                          ambiguous: 0,
+                          conflict: 0,
+                          recorded: 0,
+                          offsets: [],
+                          first: null,
+                        }
+                      }
+                      selectedCaptureTime={
+                        selected?.cameraKey === selectedCamera.key ? selected.captureTime : null
+                      }
+                      onChange={(next) =>
+                        setTimeSettings((current) => ({ ...current, [selectedCamera.key]: next }))
+                      }
                     />
-                    <div className="min-h-0 flex-1">
-                      {shownPhotos.length === 0 ? (
-                        <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                          <p>No photos match</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setStatusFilter(null)
-                              setCameraFilter(null)
-                            }}
-                          >
-                            Clear filters
-                          </Button>
-                        </div>
-                      ) : view === 'list' ? (
-                        <PhotoList
-                          photos={shownPhotos}
-                          cameraNames={cameraNames}
-                          utcs={utcs}
-                          statuses={statuses}
-                          showCamera={cameraFilter === null && library.cameras.length > 1}
-                          sort={sort}
-                          onSort={setSort}
-                          selectedId={selectedId}
-                          onSelect={setSelectedId}
-                        />
-                      ) : (
-                        <PhotoGrid
-                          photos={shownPhotos}
-                          cameraNames={cameraNames}
-                          utcs={utcs}
-                          statuses={statuses}
-                          showCamera={cameraFilter === null && library.cameras.length > 1}
-                          selectedId={selectedId}
-                          onSelect={setSelectedId}
-                        />
-                      )}
-                    </div>
-                  </>
+                  </div>
                 )}
-              </section>
+              </div>
             )}
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel
-        id="metadata"
-        data-testid="panel-metadata"
-        panelRef={panels.refs.metadata}
-        collapsible
-        minSize={PANEL_MIN.metadata}
-        defaultSize={PANEL_DEFAULT.metadata}
-        groupResizeBehavior="preserve-pixel-size"
-        onResize={panels.onResize('metadata')}
-      >
-        {panels.open.metadata && (
-          <aside aria-label="Metadata" data-panel="metadata" className="h-full min-h-0">
-            <MetadataPanel photo={selected} />
+            <div className="mt-auto">
+              <TrackPanel
+                track={track}
+                dawarich={dawarich}
+                defaultRange={fetchRange}
+                fetchRequest={fetchRequest}
+                onTrack={setTrack}
+                onDawarich={setDawarich}
+              />
+            </div>
           </aside>
-        )}
-      </ResizablePanel>
-    </ResizablePanelGroup>
+        </ResizablePanel>
+        <ResizableHandle />
+
+        <ResizablePanel id="center" data-testid="panel-center" minSize={CENTER_MIN_WIDTH}>
+          <ResizablePanelGroup
+            id="center-split"
+            orientation="vertical"
+            defaultLayout={centerLayout.defaultLayout}
+            onLayoutChanged={(layout, meta) => {
+              centerLayout.onLayoutChanged(layout, meta)
+              if (meta.isUserInteraction) panels.rememberSizes(['photos'])
+            }}
+          >
+            <ResizablePanel id="map" data-testid="panel-map" minSize={MAP_MIN_HEIGHT}>
+              <main aria-label="Map" className="relative h-full min-h-0 bg-muted/40">
+                <MapPanel
+                  mapSource={settings?.mapSource ?? null}
+                  mapRevision={mapRevision}
+                  library={library}
+                  hasTrack={!!track && track.count > 0}
+                  geometry={geometry}
+                  preview={preview}
+                  statuses={statuses}
+                  utcs={utcs}
+                  scope={cameraScope}
+                  loadError={loadError}
+                  retrying={retrying.length > 0}
+                  onRetry={retryFailed}
+                  selectedId={selectedId}
+                  onSelect={selectFromMap}
+                  onApplyOffset={applyOffset}
+                  onManual={setPlacement}
+                />
+                <div className="pointer-events-none absolute top-3 right-3 z-10 flex items-start gap-2">
+                  <RecoveryMenu writes={writes} onChanged={reloadAfterRestore} />
+                  {settings && library && (
+                    <WriteDialog
+                      snapshot={preview.snapshot}
+                      previewRunning={preview.running}
+                      writing={settings.writing}
+                      onWritten={(result) => showWritten(result.library)}
+                    />
+                  )}
+                  <PanelToggles panels={panels} />
+                </div>
+              </main>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel
+              id="photos"
+              data-testid="panel-photos"
+              panelRef={panels.refs.photos}
+              collapsible
+              minSize={PANEL_MIN.photos}
+              defaultSize={PANEL_DEFAULT.photos}
+              groupResizeBehavior="preserve-pixel-size"
+              onResize={panels.onResize('photos')}
+            >
+              {panels.open.photos && (
+                <section
+                  aria-label="Photos"
+                  data-panel="photos"
+                  className="flex h-full min-h-0 flex-col"
+                  aria-busy={loading}
+                >
+                  {outside.length > 0 &&
+                    track?.source.kind === 'dawarich' &&
+                    load.status !== 'loading' && (
+                      <div
+                        role="status"
+                        data-testid="outside-range"
+                        className="flex shrink-0 items-center gap-2 border-b bg-amber-50 px-4 py-1.5 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                      >
+                        <TriangleAlert className="size-4 shrink-0" />
+                        <span className="flex-1">
+                          The track doesn’t cover {outside.length.toLocaleString()}{' '}
+                          {outside.length === 1 ? 'photo' : 'photos'}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7"
+                          onClick={() => {
+                            const source = track.source as { start: string; end: string }
+                            panels.show('cameras')
+                            setFetchRequest({
+                              range: rangeCovering(outside, {
+                                start: source.start,
+                                end: source.end,
+                              }),
+                            })
+                          }}
+                        >
+                          Fetch wider range
+                        </Button>
+                      </div>
+                    )}
+                  {load.status === 'loading' && load.progress ? (
+                    // While the folder dialog is open there is no progress yet: keep showing the current library.
+                    <LoadingState progress={load.progress} />
+                  ) : load.status === 'error' ? (
+                    <p className="px-4 py-3 text-destructive">
+                      Couldn’t open the folder: {load.message}
+                    </p>
+                  ) : !library ? null : library.photos.length === 0 ? (
+                    <p className="px-4 py-3 text-muted-foreground">
+                      No JPEG, HEIC or RAW photos in {library.folderName}.
+                    </p>
+                  ) : (
+                    <>
+                      <PhotosToolbar
+                        view={view}
+                        onView={(next) => {
+                          setView(next)
+                          localStorage.setItem(VIEW_KEY, next)
+                        }}
+                        cameras={panels.open.cameras ? [] : library.cameras}
+                        cameraFilter={cameraFilter}
+                        onCameraFilter={setCameraFilter}
+                        groupCounts={groupCounts}
+                        statusFilter={activeStatusFilter}
+                        onStatusFilter={setStatusFilter}
+                      />
+                      <div className="min-h-0 flex-1">
+                        {shownPhotos.length === 0 ? (
+                          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                            <p>No photos match</p>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setStatusFilter(null)
+                                setCameraFilter(null)
+                              }}
+                            >
+                              Clear filters
+                            </Button>
+                          </div>
+                        ) : view === 'list' ? (
+                          <PhotoList
+                            photos={shownPhotos}
+                            cameraNames={cameraNames}
+                            utcs={utcs}
+                            statuses={statuses}
+                            showCamera={cameraFilter === null && library.cameras.length > 1}
+                            sort={sort}
+                            onSort={setSort}
+                            selectedId={selectedId}
+                            onSelect={setSelectedId}
+                          />
+                        ) : (
+                          <PhotoGrid
+                            photos={shownPhotos}
+                            cameraNames={cameraNames}
+                            utcs={utcs}
+                            statuses={statuses}
+                            showCamera={cameraFilter === null && library.cameras.length > 1}
+                            selectedId={selectedId}
+                            onSelect={setSelectedId}
+                          />
+                        )}
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </ResizablePanel>
+        <ResizableHandle />
+        <ResizablePanel
+          id="metadata"
+          data-testid="panel-metadata"
+          panelRef={panels.refs.metadata}
+          collapsible
+          minSize={PANEL_MIN.metadata}
+          defaultSize={PANEL_DEFAULT.metadata}
+          groupResizeBehavior="preserve-pixel-size"
+          onResize={panels.onResize('metadata')}
+        >
+          {panels.open.metadata && (
+            <aside aria-label="Metadata" data-panel="metadata" className="h-full min-h-0">
+              <MetadataPanel photo={selected} />
+            </aside>
+          )}
+        </ResizablePanel>
+      </ResizablePanelGroup>
+      <UpdateNotice />
+    </>
   )
 }
 
