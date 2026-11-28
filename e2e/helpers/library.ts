@@ -77,14 +77,19 @@ export async function pickZone(scope: Locator, label: string, zone: string): Pro
 export async function openSettings(app: ElectronApplication, page: Page): Promise<Locator> {
   if (process.platform === 'darwin') {
     await expect(page.getByRole('button', { name: 'Settings' })).toHaveCount(0)
-    await app.evaluate(({ Menu }) => {
-      const item = Menu.getApplicationMenu()?.getMenuItemById('settings')
-      if (!item) throw new Error('no Settings menu item')
-      item.click()
-    })
-  } else {
-    await page.getByRole('button', { name: 'Settings' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Settings' })
+    // The dialog listens once the saved settings have loaded, a moment after launch.
+    await expect(async () => {
+      await app.evaluate(({ Menu }) => {
+        const item = Menu.getApplicationMenu()?.getMenuItemById('settings')
+        if (!item) throw new Error('no Settings menu item')
+        item.click()
+      })
+      await expect(dialog).toBeVisible({ timeout: 500 })
+    }).toPass()
+    return dialog
   }
+  await page.getByRole('button', { name: 'Settings' }).click()
   const dialog = page.getByRole('dialog', { name: 'Settings' })
   await expect(dialog).toBeVisible()
   return dialog

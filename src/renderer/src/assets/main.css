@@ -117,3 +117,47 @@
     background-color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
   }
 }
+
+/* Fade only the edge of a scroll area that still has content behind it. */
+@property --fade-start {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-end {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes fade-start {
+  from {
+    --fade-start: 0px;
+  }
+  to {
+    --fade-start: 2rem;
+  }
+}
+@keyframes fade-end {
+  from {
+    --fade-end: 2rem;
+  }
+  to {
+    --fade-end: 0px;
+  }
+}
+.scroll-fade-y {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black var(--fade-start),
+    black calc(100% - var(--fade-end)),
+    transparent
+  );
+  animation:
+    fade-start 1ms linear both,
+    fade-end 1ms linear both;
+  animation-range:
+    0 3rem,
+    calc(100% - 3rem) 100%;
+  animation-timeline: scroll(self y);
+}

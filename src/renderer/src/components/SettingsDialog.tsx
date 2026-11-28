@@ -151,189 +151,207 @@ export function SettingsDialog({
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className="flex max-h-[90vh] flex-col gap-0 p-0 sm:max-w-lg"
+        // Land on the dialog, not in the first number field with its text selected.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLElement).focus()
+        }}
+      >
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            if (invalid.size === 0) void save()
+            if (invalid.size === 0) {
+              void save()
+              return
+            }
+            // Save says what's wrong by taking you to it, even when it's scrolled away.
+            e.currentTarget.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
           }}
-          className="grid gap-5"
+          className="flex min-h-0 flex-col"
         >
-          <DialogHeader>
+          <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle>Settings</DialogTitle>
             <DialogDescription className="sr-only">
               Matching limits, gap bridging, writing options and the map
             </DialogDescription>
           </DialogHeader>
 
-          <fieldset className="grid gap-3" disabled={saving}>
-            <legend className="mb-2 font-medium">Matching</legend>
-            <NumberRow
-              id={`${ids}-int`}
-              label="Interpolate between points up to"
-              unit="min apart"
-              value={draft.maxIntMinutes}
-              onChange={(v) => set({ maxIntMinutes: v })}
-              invalid={invalid.has('matching.geoMaxIntSecs')}
-              hint="1 minute to 7 days"
-            />
-            <NumberRow
-              id={`${ids}-ext`}
-              label="Use the nearest point up to"
-              unit="min away"
-              value={draft.maxExtMinutes}
-              onChange={(v) => set({ maxExtMinutes: v })}
-              invalid={invalid.has('matching.geoMaxExtSecs')}
-              hint="1 minute to 7 days"
-            />
-          </fieldset>
+          {/* Header and buttons stay put; only the settings scroll. */}
+          <div className="scroll-fade-y grid min-h-0 gap-6 overflow-y-auto px-6 py-4">
+            <fieldset className="grid gap-3" disabled={saving}>
+              <legend className="mb-2 font-medium">Matching</legend>
+              <NumberRow
+                id={`${ids}-int`}
+                label="Interpolate between points up to"
+                unit="min apart"
+                value={draft.maxIntMinutes}
+                onChange={(v) => set({ maxIntMinutes: v })}
+                invalid={invalid.has('matching.geoMaxIntSecs')}
+                hint="1 minute to 7 days"
+              />
+              <NumberRow
+                id={`${ids}-ext`}
+                label="Use the nearest point up to"
+                unit="min away"
+                value={draft.maxExtMinutes}
+                onChange={(v) => set({ maxExtMinutes: v })}
+                invalid={invalid.has('matching.geoMaxExtSecs')}
+                hint="1 minute to 7 days"
+              />
+            </fieldset>
 
-          <fieldset className="grid gap-3" disabled={saving}>
-            <legend className="mb-2 font-medium">Stationary gaps</legend>
-            <Check
-              id={`${ids}-bridge`}
-              checked={draft.bridgeEnabled}
-              onChange={(v) => set({ bridgeEnabled: v })}
-            >
-              Bridge gaps where the track starts and ends at the same place
-            </Check>
-            <NumberRow
-              id={`${ids}-radius`}
-              label="Same place: within"
-              unit="m"
-              value={draft.bridgeRadius}
-              onChange={(v) => set({ bridgeRadius: v })}
-              invalid={invalid.has('matching.bridge.radiusMeters')}
-              hint="10 to 5000 m, whole meters"
-              disabled={!draft.bridgeEnabled}
-            />
-            <NumberRow
-              id={`${ids}-hours`}
-              label="Gaps up to"
-              unit="h"
-              value={draft.bridgeHours}
-              onChange={(v) => set({ bridgeHours: v })}
-              invalid={invalid.has('matching.bridge.maxGapHours')}
-              hint="1 to 72 h, whole hours"
-              disabled={!draft.bridgeEnabled}
-            />
-          </fieldset>
-
-          <fieldset className="grid gap-3" disabled={saving}>
-            <legend className="mb-2 font-medium">Writing</legend>
-            <Check
-              id={`${ids}-overwrite`}
-              checked={draft.writing.overwriteGps}
-              onChange={(v) => setWriting({ overwriteGps: v })}
-            >
-              Replace GPS positions photos already have
-            </Check>
-            <Check
-              id={`${ids}-oto`}
-              checked={draft.writing.writeOffsetTime}
-              onChange={(v) => setWriting({ writeOffsetTime: v })}
-            >
-              Write the time zone offset (OffsetTimeOriginal)
-            </Check>
-            <Check
-              id={`${ids}-backups`}
-              checked={draft.writing.backups}
-              onChange={(v) => setWriting({ backups: v })}
-            >
-              Keep a copy of each original file
-            </Check>
-            <div className="grid gap-1.5" role="radiogroup" aria-labelledby={`${ids}-raw`}>
-              <span id={`${ids}-raw`} className="text-sm">
-                For RAW files, write into
-              </span>
-              <Radio
-                name={`${ids}-raw`}
-                checked={draft.writing.rawTarget === 'in-file'}
-                onChange={() => setWriting({ rawTarget: 'in-file' })}
+            <fieldset className="grid gap-3" disabled={saving}>
+              <legend className="mb-2 font-medium">Stationary gaps</legend>
+              <Check
+                id={`${ids}-bridge`}
+                checked={draft.bridgeEnabled}
+                onChange={(v) => set({ bridgeEnabled: v })}
               >
-                The RAW file itself
-              </Radio>
-              <Radio
-                name={`${ids}-raw`}
-                checked={draft.writing.rawTarget === 'sidecar'}
-                onChange={() => setWriting({ rawTarget: 'sidecar' })}
-              >
-                An .xmp sidecar next to it
-              </Radio>
-            </div>
-          </fieldset>
-
-          <fieldset className="grid gap-2" disabled={saving}>
-            <legend className="mb-2 font-medium">Map</legend>
-            <Radio
-              name={`${ids}-map`}
-              checked={draft.mapKind === 'openfreemap'}
-              onChange={() => set({ mapKind: 'openfreemap' })}
-            >
-              OpenFreeMap
-            </Radio>
-            <Radio
-              name={`${ids}-map`}
-              checked={draft.mapKind === 'style'}
-              onChange={() => set({ mapKind: 'style' })}
-            >
-              Map style URL
-            </Radio>
-            {draft.mapKind === 'style' && (
-              <div className="grid gap-1 pl-6">
-                <Label htmlFor={`${ids}-style`} className="sr-only">
-                  Style address
-                </Label>
-                <Input
-                  id={`${ids}-style`}
-                  type="url"
-                  inputMode="url"
-                  spellCheck={false}
-                  placeholder="https://example.com/style.json"
-                  value={draft.styleUrl}
-                  onChange={(e) => set({ styleUrl: e.target.value })}
-                  aria-invalid={invalid.has('mapSource.url') || undefined}
-                  autoFocus
+                Bridge gaps where the track starts and ends at the same place
+              </Check>
+              <div className="grid gap-3 pl-6">
+                <NumberRow
+                  id={`${ids}-radius`}
+                  label="Within"
+                  unit="m"
+                  value={draft.bridgeRadius}
+                  onChange={(v) => set({ bridgeRadius: v })}
+                  invalid={invalid.has('matching.bridge.radiusMeters')}
+                  hint="10 to 5000 m, whole meters"
+                  disabled={!draft.bridgeEnabled}
                 />
-                {invalid.has('mapSource.url') && draft.styleUrl.trim() !== '' && (
-                  <p className="text-destructive text-xs">Use an https:// address</p>
-                )}
+                <NumberRow
+                  id={`${ids}-hours`}
+                  label="Gaps up to"
+                  unit="h"
+                  value={draft.bridgeHours}
+                  onChange={(v) => set({ bridgeHours: v })}
+                  invalid={invalid.has('matching.bridge.maxGapHours')}
+                  hint="1 to 72 h, whole hours"
+                  disabled={!draft.bridgeEnabled}
+                />
               </div>
-            )}
-            <Radio
-              name={`${ids}-map`}
-              checked={draft.mapKind === 'pmtiles'}
-              onChange={() => set({ mapKind: 'pmtiles' })}
-            >
-              Offline map file (.pmtiles)
-            </Radio>
-            {draft.mapKind === 'pmtiles' && (
-              <div className="flex items-center gap-2 pl-6">
-                <span
-                  className="min-w-0 flex-1 truncate text-muted-foreground"
-                  data-testid="pmtiles-name"
-                >
-                  {draft.pmtilesName ?? 'No file chosen'}
+            </fieldset>
+
+            <fieldset className="grid gap-3" disabled={saving}>
+              <legend className="mb-2 font-medium">Writing</legend>
+              <Check
+                id={`${ids}-overwrite`}
+                checked={draft.writing.overwriteGps}
+                onChange={(v) => setWriting({ overwriteGps: v })}
+              >
+                Replace GPS positions photos already have
+              </Check>
+              <Check
+                id={`${ids}-oto`}
+                checked={draft.writing.writeOffsetTime}
+                onChange={(v) => setWriting({ writeOffsetTime: v })}
+              >
+                Write the time zone offset (OffsetTimeOriginal)
+              </Check>
+              <Check
+                id={`${ids}-backups`}
+                checked={draft.writing.backups}
+                onChange={(v) => setWriting({ backups: v })}
+              >
+                Keep a copy of each original file
+              </Check>
+              <div className="grid gap-1.5" role="radiogroup" aria-labelledby={`${ids}-raw`}>
+                <span id={`${ids}-raw`} className="text-sm">
+                  For RAW files, write into
                 </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void choosePmtiles()}
+                <Radio
+                  name={`${ids}-raw`}
+                  checked={draft.writing.rawTarget === 'in-file'}
+                  onChange={() => setWriting({ rawTarget: 'in-file' })}
                 >
-                  Choose file
-                </Button>
+                  The RAW file itself
+                </Radio>
+                <Radio
+                  name={`${ids}-raw`}
+                  checked={draft.writing.rawTarget === 'sidecar'}
+                  onChange={() => setWriting({ rawTarget: 'sidecar' })}
+                >
+                  An .xmp sidecar next to it
+                </Radio>
               </div>
+            </fieldset>
+
+            <fieldset className="grid gap-2" disabled={saving}>
+              <legend className="mb-2 font-medium">Map</legend>
+              <Radio
+                name={`${ids}-map`}
+                checked={draft.mapKind === 'openfreemap'}
+                onChange={() => set({ mapKind: 'openfreemap' })}
+              >
+                OpenFreeMap
+              </Radio>
+              <Radio
+                name={`${ids}-map`}
+                checked={draft.mapKind === 'style'}
+                onChange={() => set({ mapKind: 'style' })}
+              >
+                Map style URL
+              </Radio>
+              {draft.mapKind === 'style' && (
+                <div className="grid gap-1 pl-6">
+                  <Label htmlFor={`${ids}-style`} className="sr-only">
+                    Style address
+                  </Label>
+                  <Input
+                    id={`${ids}-style`}
+                    type="url"
+                    inputMode="url"
+                    spellCheck={false}
+                    placeholder="https://example.com/style.json"
+                    value={draft.styleUrl}
+                    onChange={(e) => set({ styleUrl: e.target.value })}
+                    aria-invalid={invalid.has('mapSource.url') || undefined}
+                    autoFocus
+                  />
+                  {invalid.has('mapSource.url') && draft.styleUrl.trim() !== '' && (
+                    <p className="text-destructive text-xs">Use an https:// address</p>
+                  )}
+                </div>
+              )}
+              <Radio
+                name={`${ids}-map`}
+                checked={draft.mapKind === 'pmtiles'}
+                onChange={() => set({ mapKind: 'pmtiles' })}
+              >
+                Offline map file (.pmtiles)
+              </Radio>
+              {draft.mapKind === 'pmtiles' && (
+                <div className="flex items-center gap-2 pl-6">
+                  <span
+                    className="min-w-0 flex-1 truncate text-muted-foreground"
+                    data-testid="pmtiles-name"
+                  >
+                    {draft.pmtilesName ?? 'No file chosen'}
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void choosePmtiles()}
+                    aria-invalid={invalid.has('mapSource') || undefined}
+                  >
+                    Choose file
+                  </Button>
+                </div>
+              )}
+            </fieldset>
+
+            {error && (
+              <p role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
             )}
-          </fieldset>
+          </div>
 
-          {error && (
-            <p role="alert" className="text-destructive text-sm">
-              {error}
-            </p>
-          )}
-
-          <DialogFooter>
+          <DialogFooter className="px-6 pt-2 pb-6">
             <Button
               type="button"
               variant="outline"
@@ -342,7 +360,7 @@ export function SettingsDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || invalid.size > 0}>
+            <Button type="submit" disabled={saving}>
               {saving && <LoaderCircle className="animate-spin motion-reduce:animate-none" />}
               Save
             </Button>
