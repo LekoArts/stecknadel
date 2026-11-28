@@ -46,7 +46,7 @@ function actionText(action: Action, w: JournalView): string {
     case 'restoreValues':
       return `Puts back the GPS and time zone values ${w.restorable} ${w.restorable === 1 ? 'file' : 'files'} had before this write, and removes sidecars it created. Files edited since are left alone.`
     case 'restoreOriginals':
-      return `Replaces ${w.backups.count} edited ${w.backups.count === 1 ? 'file' : 'files'} with the copy kept before Stecknadel first wrote to them. Files edited since are left alone.`
+      return `Replaces ${w.backups.count} edited ${w.backups.count === 1 ? 'file' : 'files'} with their _original copies. ExifTool keeps the oldest copy, which may predate Stecknadel. Files edited since are left alone.`
     case 'cleanupBackups':
       return `Deletes ${w.backups.count} ${w.backups.count === 1 ? 'copy' : 'copies'} (${bytes(w.backups.bytes)}). The written files stay as they are.`
   }

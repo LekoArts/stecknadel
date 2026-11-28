@@ -161,12 +161,12 @@ If the camera settings or the track changed while the map was still updating, St
 
 Click the history button (a clock with an arrow) next to **Write** to see **Recent writes**.
 
-| Action                | What it does                                                                                                                                            |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Restore values**    | Puts back the GPS and time zone values the files had before the write, and removes sidecar files the write created.                                     |
-| **Restore originals** | Replaces the edited files with the copies kept before Stecknadel first wrote to them. Only available when **Keep a copy of each original file** was on. |
-| **Delete copies**     | Deletes those copies to free space.                                                                                                                     |
-| **Forget**            | Removes the write from the list.                                                                                                                        |
+| Action                | What it does                                                                                                                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Restore values**    | Puts back the GPS and time zone values the files had before the write, and removes sidecar files the write created.                                                                                                                              |
+| **Restore originals** | Replaces the edited files with their `<file>_original` copies. ExifTool keeps only the oldest copy, so if one was already there from another tool, that older copy comes back. Only available when **Keep a copy of each original file** was on. |
+| **Delete copies**     | Deletes those copies to free space.                                                                                                                                                                                                              |
+| **Forget**            | Removes the write from the list.                                                                                                                                                                                                                 |
 
 A file you edited in another app after the write is left alone.
 
