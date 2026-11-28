@@ -10,10 +10,13 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { TriangleAlert } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
-const TILE_WIDTH = 184
-// 120 thumbnail + up to four 16px text lines, their gaps, padding and border.
-const TILE_HEIGHT = 210
+/** Tile widths the size slider offers; thumbnails are 256 px, so larger would blur. */
+export const TILE_WIDTHS = { min: 120, max: 280, default: 184 } as const
+// Up to four 16px text lines, their gaps, padding and border.
+const TEXT_HEIGHT = 90
 const GAP = 8
+
+const thumbHeight = (tileWidth: number): number => Math.round((tileWidth * 120) / 184)
 
 interface PhotoGridProps {
   photos: PhotoSummary[]
@@ -23,6 +26,7 @@ interface PhotoGridProps {
   statuses: Map<string, MatchStatus>
   /** Hide the camera line when the grid is already filtered to one camera. */
   showCamera: boolean
+  tileWidth: number
   selectedId: string | null
   /** null clears the selection. */
   onSelect: (id: string | null) => void
@@ -34,6 +38,7 @@ export function PhotoGrid({
   utcs,
   statuses,
   showCamera,
+  tileWidth,
   selectedId,
   onSelect,
 }: PhotoGridProps): React.JSX.Element {
@@ -48,14 +53,19 @@ export function PhotoGrid({
     return () => observer.disconnect()
   }, [])
 
-  const columns = Math.max(1, Math.floor((width + GAP) / (TILE_WIDTH + GAP)))
+  const tileHeight = thumbHeight(tileWidth) + TEXT_HEIGHT
+  const columns = Math.max(1, Math.floor((width + GAP) / (tileWidth + GAP)))
   const rows = Math.ceil(photos.length / columns)
   const virtualizer = useVirtualizer({
     count: rows,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => TILE_HEIGHT + GAP,
+    estimateSize: () => tileHeight + GAP,
     overscan: 2,
   })
+  // Row heights are estimates: re-measure when the tile size changes.
+  useEffect(() => {
+    if (tileHeight) virtualizer.measure()
+  }, [tileHeight, virtualizer])
 
   // Keep the selected photo in view (it may have been picked on the map).
   useEffect(() => {
@@ -82,7 +92,7 @@ export function PhotoGrid({
           <div
             key={row.key}
             className="absolute inset-x-0 flex"
-            style={{ top: row.start, height: TILE_HEIGHT, gap: GAP }}
+            style={{ top: row.start, height: tileHeight, gap: GAP }}
           >
             {photos.slice(row.index * columns, row.index * columns + columns).map((photo) => (
               <PhotoTile
@@ -92,6 +102,8 @@ export function PhotoGrid({
                 utc={utcs.get(photo.id)}
                 status={statuses.get(photo.id)}
                 selected={photo.id === selectedId}
+                width={tileWidth}
+                height={tileHeight}
                 onSelect={onSelect}
               />
             ))}
@@ -108,6 +120,8 @@ function PhotoTile({
   utc,
   status,
   selected,
+  width,
+  height,
   onSelect,
 }: {
   photo: PhotoSummary
@@ -115,6 +129,8 @@ function PhotoTile({
   utc: PhotoUtc | undefined
   status: MatchStatus | undefined
   selected: boolean
+  width: number
+  height: number
   onSelect: (id: string) => void
 }): React.JSX.Element {
   return (
@@ -129,9 +145,9 @@ function PhotoTile({
         'hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         selected && 'border-primary bg-accent',
       )}
-      style={{ width: TILE_WIDTH, height: TILE_HEIGHT }}
+      style={{ width, height }}
     >
-      <Thumbnail photo={photo} status={status} />
+      <Thumbnail photo={photo} status={status} width={width} />
       <div className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5 text-xs">
         <span
           className="truncate font-medium"
@@ -160,23 +176,34 @@ function PhotoTile({
 function Thumbnail({
   photo,
   status,
+  width,
 }: {
   photo: PhotoSummary
   status: MatchStatus | undefined
+  width: number
 }): React.JSX.Element {
   const thumb = useThumbnail(photo.id)
+  const height = thumbHeight(width)
   return (
-    <div className="relative grid h-[120px] w-full shrink-0 place-items-center overflow-hidden bg-muted">
+    <div
+      className="relative grid w-full shrink-0 place-items-center overflow-hidden bg-muted"
+      style={{ height }}
+    >
       {thumb?.url ? (
         <img
           src={thumb.url}
           alt=""
           draggable={false}
-          className={cn(
-            'object-cover',
-            thumb.rotate % 180 === 0 ? 'size-full' : 'h-[184px] w-[120px] max-w-none',
-          )}
-          style={thumb.rotate ? { transform: `rotate(${thumb.rotate}deg)` } : undefined}
+          className={cn('object-cover', thumb.rotate % 180 === 0 ? 'size-full' : 'max-w-none')}
+          // Turned a quarter, the image's box is the tile's box on its side.
+          style={
+            thumb.rotate
+              ? {
+                  transform: `rotate(${thumb.rotate}deg)`,
+                  ...(thumb.rotate % 180 === 0 ? {} : { width: height, height: width }),
+                }
+              : undefined
+          }
         />
       ) : thumb === undefined ? null : (
         <span className="font-medium text-muted-foreground text-xs">{photo.format}</span>

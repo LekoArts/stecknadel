@@ -1,10 +1,11 @@
 import { Button } from '@renderer/components/ui/button'
 import { Command, CommandGroup, CommandItem, CommandList } from '@renderer/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/components/ui/popover'
+import { Slider } from '@renderer/components/ui/slider'
 import { STATUS_GROUP_LABELS, STATUS_GROUPS, type StatusGroup } from '@renderer/lib/photoFilter'
 import { cn } from '@renderer/lib/utils'
 import type { CameraSummary } from '@shared/library'
-import { Check, ChevronsUpDown, LayoutGrid, List } from 'lucide-react'
+import { Check, ChevronsUpDown, Image, LayoutGrid, List } from 'lucide-react'
 import { useState } from 'react'
 
 export type PhotoView = 'grid' | 'list'
@@ -20,6 +21,8 @@ interface PhotosToolbarProps {
   groupCounts: Record<StatusGroup, number> | null
   statusFilter: StatusGroup | null
   onStatusFilter: (group: StatusGroup | null) => void
+  /** Grid only: the tile-size slider. */
+  tileSize: { value: number; min: number; max: number; onChange: (width: number) => void } | null
 }
 
 const segment =
@@ -34,6 +37,7 @@ export function PhotosToolbar({
   groupCounts,
   statusFilter,
   onStatusFilter,
+  tileSize,
 }: PhotosToolbarProps): React.JSX.Element {
   return (
     // biome-ignore lint/a11y/useSemanticElements: a fieldset can't lay out as a toolbar row
@@ -87,6 +91,20 @@ export function PhotosToolbar({
               {STATUS_GROUP_LABELS[g]}
             </button>
           ))}
+        </div>
+      )}
+      {tileSize && (
+        <div className="ml-auto flex w-36 shrink-0 items-center gap-2 pl-2 text-muted-foreground">
+          <Image aria-hidden className="size-3.5 shrink-0" />
+          <Slider
+            aria-label="Thumbnail size"
+            min={tileSize.min}
+            max={tileSize.max}
+            step={8}
+            value={[tileSize.value]}
+            onValueChange={([width]) => tileSize.onChange(width)}
+          />
+          <Image aria-hidden className="size-4.5 shrink-0" />
         </div>
       )}
     </div>

@@ -8,7 +8,7 @@ import {
 import { MapPanel } from '@renderer/components/MapPanel'
 import { MetadataPanel } from '@renderer/components/MetadataPanel'
 import { PanelToggles } from '@renderer/components/PanelToggles'
-import { PhotoGrid } from '@renderer/components/PhotoGrid'
+import { PhotoGrid, TILE_WIDTHS } from '@renderer/components/PhotoGrid'
 import { PhotoList } from '@renderer/components/PhotoList'
 import { PhotosToolbar, type PhotoView } from '@renderer/components/PhotosToolbar'
 import { RecoveryMenu } from '@renderer/components/RecoveryMenu'
@@ -66,6 +66,7 @@ import { UpdateNotice } from './components/UpdateNotice'
 const CENTER_MIN_WIDTH = 360
 const MAP_MIN_HEIGHT = 200
 const VIEW_KEY = 'stecknadel.photoView.v1'
+const TILE_KEY = 'stecknadel.tileWidth.v1'
 
 /** The three loads the app needs before it can show anything; each can be retried alone. */
 type LoadSource = 'track' | 'geometry' | 'zones' | 'settings'
@@ -83,6 +84,10 @@ export default function App(): React.JSX.Element {
   const [load, setLoad] = useState<Load>({ status: 'idle' })
   const [cameraFilter, setCameraFilter] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusGroup | null>(null)
+  const [tileWidth, setTileWidth] = useState(() => {
+    const saved = Number(localStorage.getItem(TILE_KEY))
+    return saved >= TILE_WIDTHS.min && saved <= TILE_WIDTHS.max ? saved : TILE_WIDTHS.default
+  })
   const [view, setView] = useState<PhotoView>(() =>
     localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid',
   )
@@ -732,6 +737,18 @@ export default function App(): React.JSX.Element {
                         groupCounts={groupCounts}
                         statusFilter={activeStatusFilter}
                         onStatusFilter={setStatusFilter}
+                        tileSize={
+                          view === 'grid'
+                            ? {
+                                ...TILE_WIDTHS,
+                                value: tileWidth,
+                                onChange: (width) => {
+                                  setTileWidth(width)
+                                  localStorage.setItem(TILE_KEY, String(width))
+                                },
+                              }
+                            : null
+                        }
                       />
                       <div className="min-h-0 flex-1">
                         {shownPhotos.length === 0 ? (
@@ -767,6 +784,7 @@ export default function App(): React.JSX.Element {
                             utcs={utcs}
                             statuses={statuses}
                             showCamera={cameraFilter === null && library.cameras.length > 1}
+                            tileWidth={tileWidth}
                             selectedId={selectedId}
                             onSelect={setSelectedId}
                           />
