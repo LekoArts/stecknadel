@@ -102,7 +102,7 @@ test('installed app: geotags synthetic photos exactly as the oracle says', async
       await expect(legend.locator(`[data-kind="${kind}"]`)).toContainText(String(n.length))
     }
 
-    await page.getByRole('button', { name: 'Write', exact: true }).click()
+    await page.getByTestId('write-button').click()
     const confirm = page.getByRole('dialog', { name: 'Write 3 positions' })
     await expect(confirm).toBeVisible()
     await confirm.getByRole('button', { name: 'Write', exact: true }).click()

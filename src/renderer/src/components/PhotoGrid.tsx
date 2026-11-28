@@ -1,4 +1,13 @@
+import { PhotoContextMenu, type PhotoMenuProps } from '@renderer/components/PhotoContextMenu'
 import { formatCaptureTime } from '@renderer/lib/format'
+import { isMac } from '@renderer/lib/panels'
+import {
+  clickModifiers,
+  clickSelection,
+  EMPTY_SELECTION,
+  type Selection,
+  selectAll,
+} from '@renderer/lib/selection'
 import { STATUS_COLORS } from '@renderer/lib/status'
 import { useThumbnail } from '@renderer/lib/thumbnails'
 import { formatInstant } from '@renderer/lib/time'
@@ -18,7 +27,7 @@ const GAP = 8
 
 const thumbHeight = (tileWidth: number): number => Math.round((tileWidth * 120) / 184)
 
-interface PhotoGridProps {
+interface PhotoGridProps extends PhotoMenuProps {
   photos: PhotoSummary[]
   cameraNames: Map<string, string>
   utcs: Map<string, PhotoUtc>
@@ -27,9 +36,8 @@ interface PhotoGridProps {
   /** Hide the camera line when the grid is already filtered to one camera. */
   showCamera: boolean
   tileWidth: number
-  selectedId: string | null
-  /** null clears the selection. */
-  onSelect: (id: string | null) => void
+  selection: Selection
+  onSelection: (next: Selection) => void
 }
 
 export function PhotoGrid({
@@ -39,9 +47,12 @@ export function PhotoGrid({
   statuses,
   showCamera,
   tileWidth,
-  selectedId,
-  onSelect,
+  selection,
+  onSelection,
+  onWrite,
+  writable,
 }: PhotoGridProps): React.JSX.Element {
+  const selectedId = selection.primary
   const scrollRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
 
@@ -73,44 +84,71 @@ export function PhotoGrid({
     if (index !== -1) virtualizer.scrollToIndex(Math.floor(index / columns), { align: 'auto' })
   }, [selectedId, photos, columns, virtualizer])
 
+  const select = (id: string, e: React.MouseEvent): void =>
+    onSelection(
+      clickSelection(
+        selection,
+        id,
+        clickModifiers(e, isMac),
+        photos.map((p) => p.id),
+      ),
+    )
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: a background click-to-deselect; Escape is the keyboard path, the tiles are the controls
-    <div
-      ref={scrollRef}
-      data-testid="photo-grid"
-      className="h-full overflow-y-auto px-3 py-2 [scrollbar-gutter:stable]"
-      // Clicking between or beside the tiles, or Escape, clears the selection.
-      onClick={(e) => {
-        if (!(e.target as HTMLElement).closest('[data-testid="photo-tile"]')) onSelect(null)
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && selectedId) onSelect(null)
-      }}
+    <PhotoContextMenu
+      selection={selection}
+      onSelection={onSelection}
+      onWrite={onWrite}
+      writable={writable}
     >
-      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map((row) => (
-          <div
-            key={row.key}
-            className="absolute inset-x-0 flex"
-            style={{ top: row.start, height: tileHeight, gap: GAP }}
-          >
-            {photos.slice(row.index * columns, row.index * columns + columns).map((photo) => (
-              <PhotoTile
-                key={photo.id}
-                photo={photo}
-                camera={showCamera ? cameraNames.get(photo.cameraKey) : undefined}
-                utc={utcs.get(photo.id)}
-                status={statuses.get(photo.id)}
-                selected={photo.id === selectedId}
-                width={tileWidth}
-                height={tileHeight}
-                onSelect={onSelect}
-              />
-            ))}
-          </div>
-        ))}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: a background click-to-deselect; Escape is the keyboard path, the tiles are the controls */}
+      <div
+        ref={scrollRef}
+        data-testid="photo-grid"
+        className="h-full select-none overflow-y-auto px-3 py-2 [scrollbar-gutter:stable]"
+        // Clicking between or beside the tiles, or Escape, clears the selection.
+        onClick={(e) => {
+          if (!(e.target as HTMLElement).closest('[data-testid="photo-tile"]'))
+            onSelection(EMPTY_SELECTION)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && selection.ids.size > 0) onSelection(EMPTY_SELECTION)
+          if (e.key === 'a' && (isMac ? e.metaKey : e.ctrlKey)) {
+            e.preventDefault()
+            onSelection(
+              selectAll(
+                selection,
+                photos.map((p) => p.id),
+              ),
+            )
+          }
+        }}
+      >
+        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualizer.getVirtualItems().map((row) => (
+            <div
+              key={row.key}
+              className="absolute inset-x-0 flex"
+              style={{ top: row.start, height: tileHeight, gap: GAP }}
+            >
+              {photos.slice(row.index * columns, row.index * columns + columns).map((photo) => (
+                <PhotoTile
+                  key={photo.id}
+                  photo={photo}
+                  camera={showCamera ? cameraNames.get(photo.cameraKey) : undefined}
+                  utc={utcs.get(photo.id)}
+                  status={statuses.get(photo.id)}
+                  selected={selection.ids.has(photo.id)}
+                  width={tileWidth}
+                  height={tileHeight}
+                  onSelect={select}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </PhotoContextMenu>
   )
 }
 
@@ -131,7 +169,7 @@ function PhotoTile({
   selected: boolean
   width: number
   height: number
-  onSelect: (id: string) => void
+  onSelect: (id: string, e: React.MouseEvent) => void
 }): React.JSX.Element {
   return (
     <button
@@ -139,7 +177,7 @@ function PhotoTile({
       data-testid="photo-tile"
       data-photo-id={photo.id}
       aria-pressed={selected}
-      onClick={() => onSelect(photo.id)}
+      onClick={(e) => onSelect(photo.id, e)}
       className={cn(
         'flex shrink-0 flex-col overflow-hidden rounded-md border text-left outline-none',
         'hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',

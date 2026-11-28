@@ -7,17 +7,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@renderer/components/ui/dialog'
+import { Radio } from '@renderer/components/ui/radio'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
 import { STATUS_COLORS } from '@renderer/lib/status'
 import { cn } from '@renderer/lib/utils'
-import { type MatchKind, PLACED_KINDS, STATUS_LABELS } from '@shared/match/status'
+import { nothingToWrite, type WriteScope } from '@renderer/lib/writeScopes'
+import { type MatchKind, STATUS_LABELS } from '@shared/match/status'
 import type { PreviewSnapshot } from '@shared/preview'
 import type { WritingSettings } from '@shared/settings'
 import type { WriteOutcome, WriteProgress, WriteReport, WriteResult } from '@shared/write'
 import { LoaderCircle, MapPinCheck } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 
 interface WriteDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** What Write can mean now; the first is what the button writes. */
+  scopes: WriteScope[]
   snapshot: PreviewSnapshot | null
   /** A preview run is pending: the snapshot is about to change. */
   previewRunning: boolean
@@ -57,22 +63,41 @@ function optionsSummary(w: WritingSettings): string[] {
 
 /** The Write button, its confirmation, the progress and the result report. */
 export function WriteDialog({
+  open,
+  onOpenChange: setOpen,
+  scopes,
   snapshot,
   previewRunning,
   writing,
   onWritten,
 }: WriteDialogProps): React.JSX.Element {
-  const [open, setOpen] = useState(false)
+  const ids = useId()
   const [stage, setStage] = useState<Stage>({ kind: 'confirm', stale: null })
   const [filter, setFilter] = useState<WriteOutcome | null>(null)
+  // Chosen when the dialog opens; the scopes can't change while it's open (it's modal).
+  const [scopeKey, setScopeKey] = useState<WriteScope['key'] | null>(null)
+  const scope = scopes.find((s) => s.key === scopeKey) ?? scopes[0]
+  const button = scopes[0]
+
+  // Opening, from the button or a photo's menu, starts at the confirmation for the first scope.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) {
+      setStage({ kind: 'confirm', stale: null })
+      setScopeKey(null)
+    }
+  }
 
   const counts = useMemo(() => {
     const out = new Map<MatchKind, number>()
-    for (const r of snapshot?.results ?? [])
-      out.set(r.status.kind, (out.get(r.status.kind) ?? 0) + 1)
+    const chosen = new Set(scope.ids)
+    for (const r of snapshot?.results ?? []) {
+      if (chosen.has(r.id)) out.set(r.status.kind, (out.get(r.status.kind) ?? 0) + 1)
+    }
     return out
-  }, [snapshot])
-  const targets = [...PLACED_KINDS].reduce((n, k) => n + (counts.get(k) ?? 0), 0)
+  }, [snapshot, scope])
+  const targets = scope.writable.length
 
   useEffect(
     () =>
@@ -89,7 +114,7 @@ export function WriteDialog({
       const result = await window.stecknadel.writePhotos({
         generation: snapshot.generation,
         writing,
-        ids: snapshot.results.map((r) => r.id),
+        ids: [...scope.ids],
       })
       if (result.kind === 'stale') {
         setStage({ kind: 'confirm', stale: result.reason })
@@ -119,23 +144,37 @@ export function WriteDialog({
       onOpenChange={(next) => {
         if (busy) return
         setOpen(next)
-        if (next) setStage({ kind: 'confirm', stale: null })
       }}
     >
-      <Button
-        size="sm"
-        // As tall as the panel toggle bar beside it (32 px buttons + padding + border).
-        className="pointer-events-auto h-[38px] px-4 shadow-sm has-[>svg]:px-3.5"
-        disabled={!snapshot || previewRunning || targets === 0}
-        title={targets === 0 && snapshot ? 'No photo has a position to write' : 'Write positions'}
-        onClick={() => {
-          setStage({ kind: 'confirm', stale: null })
-          setOpen(true)
-        }}
+      {/* A disabled button shows no tooltip: the wrapper carries why it's off. */}
+      <span
+        className="pointer-events-auto"
+        title={
+          !snapshot
+            ? undefined
+            : previewRunning
+              ? 'Positions are being calculated'
+              : button.writable.length === 0
+                ? nothingToWrite(button)
+                : undefined
+        }
       >
-        <MapPinCheck />
-        Write
-      </Button>
+        <Button
+          size="sm"
+          // As tall as the panel toggle bar beside it (32 px buttons + padding + border).
+          className="h-[38px] px-4 shadow-sm has-[>svg]:px-3.5"
+          disabled={!snapshot || previewRunning || button.writable.length === 0}
+          onClick={() => setOpen(true)}
+          data-testid="write-button"
+        >
+          <MapPinCheck />
+          {button.writable.length > 1 ? (
+            <span className="tabular-nums">Write ({button.writable.length})</span>
+          ) : (
+            'Write'
+          )}
+        </Button>
+      </span>
       <DialogContent
         className={cn(stage.kind === 'report' && 'sm:max-w-2xl')}
         showCloseButton={!busy}
@@ -150,6 +189,27 @@ export function WriteDialog({
               </DialogTitle>
               <DialogDescription>The other photos stay as they are.</DialogDescription>
             </DialogHeader>
+            {scopes.length > 1 && (
+              <div
+                className="grid gap-1.5"
+                role="radiogroup"
+                aria-label="Photos to write"
+                data-testid="write-scopes"
+              >
+                {scopes.map((s) => (
+                  <Radio
+                    key={s.key}
+                    name={`${ids}-scope`}
+                    checked={s.key === scope.key}
+                    disabled={s.writable.length === 0}
+                    onChange={() => setScopeKey(s.key)}
+                  >
+                    <span className="flex-1">{s.label}</span>
+                    <span className="text-muted-foreground tabular-nums">{s.writable.length}</span>
+                  </Radio>
+                ))}
+              </div>
+            )}
             <ul className="grid gap-1 text-sm" data-testid="write-counts">
               {[...counts].map(([kind, n]) => (
                 <li key={kind} className="flex items-center gap-2">

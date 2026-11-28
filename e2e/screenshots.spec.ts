@@ -51,7 +51,7 @@ test('README screenshots', async () => {
     await page.screenshot({ path: join(out, 'cameras.png') })
 
     await page.getByRole('button', { name: 'All cameras' }).click()
-    await page.getByRole('button', { name: 'Write', exact: true }).click()
+    await page.getByTestId('write-button').click()
     const confirm = page.getByRole('dialog', { name: /^Write \d+ positions$/ })
     await confirm.getByRole('button', { name: 'Write', exact: true }).click()
     const report = page.getByRole('dialog', { name: /^Wrote \d+ positions$/ })

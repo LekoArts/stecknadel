@@ -11,6 +11,7 @@ import {
 } from '@renderer/components/ui/dialog'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
+import { Radio } from '@renderer/components/ui/radio'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
 import { isMac } from '@renderer/lib/panels'
 import {
@@ -467,30 +468,5 @@ function Check({
         {children}
       </Label>
     </div>
-  )
-}
-
-function Radio({
-  name,
-  checked,
-  onChange,
-  children,
-}: {
-  name: string
-  checked: boolean
-  onChange: () => void
-  children: ReactNode
-}): React.JSX.Element {
-  return (
-    <label className="flex items-center gap-2 text-sm">
-      <input
-        type="radio"
-        name={name}
-        className="grid size-4 shrink-0 cursor-pointer appearance-none place-content-center rounded-full border border-input shadow-xs outline-none transition-[border-width,border-color] checked:border-[5px] checked:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
-        checked={checked}
-        onChange={onChange}
-      />
-      {children}
-    </label>
   )
 }

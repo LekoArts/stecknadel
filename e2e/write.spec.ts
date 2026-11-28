@@ -70,8 +70,11 @@ test('write: confirm, report, CSV export, read-back and restore', async () => {
     await expect.poll(async () => (await previewSnapshot(page))?.results.length).toBe(4)
     const preview = (await previewSnapshot(page)) as Snapshot
 
-    await page.getByRole('button', { name: 'Write', exact: true }).click()
+    // Nothing selected, nothing filtered: Write means every photo with a position.
+    await expect(page.getByTestId('write-button')).toHaveText('Write (2)')
+    await page.getByTestId('write-button').click()
     const confirm = page.getByRole('dialog', { name: 'Write 2 positions' })
+    await expect(confirm.getByTestId('write-scopes')).toHaveCount(0)
     await expect(confirm).toBeVisible()
     await expect(confirm.getByTestId('write-counts')).toContainText('Matched1')
     await expect(confirm.getByTestId('write-counts')).toContainText('Placed at stay location1')
@@ -153,6 +156,93 @@ test('write: confirm, report, CSV export, read-back and restore', async () => {
         return snap?.results.filter((r) => r.status.kind === 'has-gps').length
       })
       .toBe(1)
+  } finally {
+    await close()
+  }
+})
+
+test('write: the selection decides what Write writes', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'steck-write-sel-'))
+  const moving = await photo(dir, 'a-moving.jpg', { DateTimeOriginal: '2026:06:01 08:00:00' })
+  const stay = await photo(dir, 'b-stay.jpg', { DateTimeOriginal: '2026:06:01 12:00:00' })
+  await photo(dir, 'c-before.jpg', { DateTimeOriginal: '2026:05:30 12:00:00' })
+  await photo(dir, 'd-later.jpg', { DateTimeOriginal: '2026:06:01 08:10:00' })
+  const movingBytes = await readFile(moving)
+  const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
+
+  const { app, page, close } = await launchWithProfile()
+  try {
+    await openFolder(app, page, dir)
+    await app.evaluate(({ dialog }, chosen) => {
+      dialog.showOpenDialog = (async () => ({
+        canceled: false,
+        filePaths: [chosen],
+      })) as unknown as typeof dialog.showOpenDialog
+    }, gpx)
+    await page.getByRole('button', { name: 'Open GPX file' }).click()
+    await expect.poll(async () => (await previewSnapshot(page))?.results.length).toBe(4)
+    const button = page.getByTestId('write-button')
+    const tile = (name: string) => page.getByTestId('photo-tile').filter({ hasText: name })
+    const pressed = () =>
+      page
+        .getByTestId('photo-tile')
+        .evaluateAll(
+          (tiles) => tiles.filter((t) => t.getAttribute('aria-pressed') === 'true').length,
+        )
+    await expect(button).toHaveText('Write (3)')
+
+    // One photo: the button says just Write. Cmd/Ctrl-click adds a second.
+    await tile('a-moving').click()
+    await expect(button).toHaveText('Write')
+    await tile('b-stay').click({ modifiers: [mod] })
+    await expect(button).toHaveText('Write (2)')
+    expect(await pressed()).toBe(2)
+    // A photo without a position: the button is off and says why.
+    await tile('c-before').click()
+    await expect(button).toBeDisabled()
+    await expect(
+      page.locator('span[title="The selected photo has no position to write"]'),
+    ).toHaveCount(1)
+    // Shift-click selects the range; Escape clears; Cmd/Ctrl+A selects every shown photo.
+    await tile('a-moving').click()
+    await tile('d-later').click({ modifiers: ['Shift'] })
+    expect(await pressed()).toBe(4)
+    await page.keyboard.press('Escape')
+    expect(await pressed()).toBe(0)
+    await tile('a-moving').click()
+    await page.keyboard.press(`${mod}+a`)
+    expect(await pressed()).toBe(4)
+
+    // Right-click inside the selection keeps it…
+    await tile('b-stay').click({ button: 'right' })
+    expect(await pressed()).toBe(4)
+    await expect(page.getByTestId('menu-write')).toHaveText('Write selected photos (3)')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('menu-write')).toHaveCount(0)
+    // …outside it, that photo becomes the selection, and Write writes just it.
+    await tile('a-moving').click()
+    await tile('b-stay').click({ button: 'right' })
+    expect(await pressed()).toBe(1)
+    await expect(page.getByTestId('menu-write')).toHaveText('Write this photo')
+    await page.getByTestId('menu-write').click()
+    const confirm = page.getByRole('dialog', { name: 'Write 1 position' })
+    await expect(confirm).toBeVisible()
+    // The title follows the chosen scope, so find the parts through the dialog itself.
+    const scopes = page.getByRole('dialog').getByTestId('write-scopes')
+    await expect(scopes.getByRole('radio')).toHaveCount(2)
+    await scopes.getByText('All photos').click()
+    await expect(page.getByRole('dialog', { name: 'Write 3 positions' })).toBeVisible()
+    await scopes.getByText('Selected photo').click()
+    await expect(confirm).toBeVisible()
+    await confirm.getByRole('button', { name: 'Write', exact: true }).click()
+
+    const report = page.getByRole('dialog', { name: 'Wrote 1 position' })
+    await expect(report).toBeVisible({ timeout: 30_000 })
+    await expect(report.getByTestId('write-report').locator('tr')).toHaveCount(1)
+    await expect(report.getByTestId('write-report')).toContainText('b-stay.jpg')
+    await report.getByRole('button', { name: 'Done' }).click()
+    expect((await exiftool.read(stay, { readArgs: ['-n'] })).GPSLatitude).toBeDefined()
+    expect(await readFile(moving)).toEqual(movingBytes)
   } finally {
     await close()
   }

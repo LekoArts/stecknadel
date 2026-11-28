@@ -1,6 +1,15 @@
+import { PhotoContextMenu, type PhotoMenuProps } from '@renderer/components/PhotoContextMenu'
 import { UtcLine } from '@renderer/components/PhotoGrid'
 import { formatCaptureTime } from '@renderer/lib/format'
+import { isMac } from '@renderer/lib/panels'
 import type { Sort, SortKey } from '@renderer/lib/photoFilter'
+import {
+  clickModifiers,
+  clickSelection,
+  EMPTY_SELECTION,
+  type Selection,
+  selectAll,
+} from '@renderer/lib/selection'
 import { STATUS_COLORS } from '@renderer/lib/status'
 import { useThumbnail } from '@renderer/lib/thumbnails'
 import { cn } from '@renderer/lib/utils'
@@ -49,7 +58,7 @@ function loadWidths(): Record<SortKey, number> {
   return widths
 }
 
-interface PhotoListProps {
+interface PhotoListProps extends PhotoMenuProps {
   photos: PhotoSummary[]
   cameraNames: Map<string, string>
   utcs: Map<string, PhotoUtc>
@@ -57,8 +66,8 @@ interface PhotoListProps {
   showCamera: boolean
   sort: Sort | null
   onSort: (sort: Sort | null) => void
-  selectedId: string | null
-  onSelect: (id: string | null) => void
+  selection: Selection
+  onSelection: (next: Selection) => void
 }
 
 export function PhotoList({
@@ -69,9 +78,12 @@ export function PhotoList({
   showCamera,
   sort,
   onSort,
-  selectedId,
-  onSelect,
+  selection,
+  onSelection,
+  onWrite,
+  writable,
 }: PhotoListProps): React.JSX.Element {
+  const selectedId = selection.primary
   const scrollRef = useRef<HTMLDivElement>(null)
   const [widths, setWidths] = useState(loadWidths)
   useEffect(() => {
@@ -112,84 +124,111 @@ export function PhotoList({
   const nextSort = (key: SortKey): Sort | null =>
     sort?.key !== key ? { key, dir: 'asc' } : sort.dir === 'asc' ? { key, dir: 'desc' } : null
 
+  const select = (id: string, e: React.MouseEvent): void =>
+    onSelection(
+      clickSelection(
+        selection,
+        id,
+        clickModifiers(e, isMac),
+        photos.map((p) => p.id),
+      ),
+    )
+
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: a background click-to-deselect; Escape is the keyboard path, the rows are the controls
-    <div
-      ref={scrollRef}
-      data-testid="photo-list"
-      className="h-full overflow-auto [scrollbar-gutter:stable]"
-      onClick={(e) => {
-        if (!(e.target as HTMLElement).closest('[data-testid="photo-row"], th')) onSelect(null)
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && selectedId) onSelect(null)
-      }}
+    <PhotoContextMenu
+      selection={selection}
+      onSelection={onSelection}
+      onWrite={onWrite}
+      writable={writable}
     >
-      {/* Rows are positioned by the virtualizer, so the table lays out as a grid. */}
-      <table aria-label="Photos" aria-rowcount={photos.length + 1} className="block min-w-fit">
-        <thead className="sticky top-0 z-10 block bg-background">
-          <tr
-            aria-rowindex={1}
-            className="grid border-b px-3 text-muted-foreground text-xs"
-            style={{ gridTemplateColumns: template, height: HEADER_HEIGHT }}
-          >
-            <th>
-              <span className="sr-only">Thumbnail</span>
-            </th>
-            {columns.map((c) => (
-              <th
-                key={c.key}
-                className="relative"
-                aria-sort={
-                  sort?.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'
-                }
-              >
-                <button
-                  type="button"
-                  onClick={() => onSort(nextSort(c.key))}
-                  className="flex h-full w-full items-center gap-1 px-2 text-left font-medium outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                >
-                  {c.label}
-                  {sort?.key === c.key &&
-                    (sort.dir === 'asc' ? (
-                      <ArrowUp className="size-3" />
-                    ) : (
-                      <ArrowDown className="size-3" />
-                    ))}
-                </button>
-                {c.key !== last && (
-                  <ResizeHandle
-                    label={c.label}
-                    width={widths[c.key]}
-                    onResize={(w) => resize(c.key, w)}
-                    onReset={() => resize(c.key, DEFAULT_WIDTHS[c.key])}
-                  />
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="relative block" style={{ height: virtualizer.getTotalSize() }}>
-          {virtualizer.getVirtualItems().map((item) => {
-            const photo = photos[item.index]
-            return (
-              <Row
-                key={photo.id}
-                index={item.index}
-                top={item.start - HEADER_HEIGHT}
-                template={template}
-                photo={photo}
-                camera={showCamera ? (cameraNames.get(photo.cameraKey) ?? '') : null}
-                utc={utcs.get(photo.id)}
-                status={statuses.size ? (statuses.get(photo.id) ?? null) : undefined}
-                selected={photo.id === selectedId}
-                onSelect={onSelect}
-              />
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: a background click-to-deselect; Escape is the keyboard path, the rows are the controls */}
+      <div
+        ref={scrollRef}
+        data-testid="photo-list"
+        className="h-full select-none overflow-auto [scrollbar-gutter:stable]"
+        onClick={(e) => {
+          if (!(e.target as HTMLElement).closest('[data-testid="photo-row"], th'))
+            onSelection(EMPTY_SELECTION)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && selection.ids.size > 0) onSelection(EMPTY_SELECTION)
+          if (e.key === 'a' && (isMac ? e.metaKey : e.ctrlKey)) {
+            e.preventDefault()
+            onSelection(
+              selectAll(
+                selection,
+                photos.map((p) => p.id),
+              ),
             )
-          })}
-        </tbody>
-      </table>
-    </div>
+          }
+        }}
+      >
+        {/* Rows are positioned by the virtualizer, so the table lays out as a grid. */}
+        <table aria-label="Photos" aria-rowcount={photos.length + 1} className="block min-w-fit">
+          <thead className="sticky top-0 z-10 block bg-background">
+            <tr
+              aria-rowindex={1}
+              className="grid border-b px-3 text-muted-foreground text-xs"
+              style={{ gridTemplateColumns: template, height: HEADER_HEIGHT }}
+            >
+              <th>
+                <span className="sr-only">Thumbnail</span>
+              </th>
+              {columns.map((c) => (
+                <th
+                  key={c.key}
+                  className="relative"
+                  aria-sort={
+                    sort?.key === c.key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSort(nextSort(c.key))}
+                    className="flex h-full w-full items-center gap-1 px-2 text-left font-medium outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  >
+                    {c.label}
+                    {sort?.key === c.key &&
+                      (sort.dir === 'asc' ? (
+                        <ArrowUp className="size-3" />
+                      ) : (
+                        <ArrowDown className="size-3" />
+                      ))}
+                  </button>
+                  {c.key !== last && (
+                    <ResizeHandle
+                      label={c.label}
+                      width={widths[c.key]}
+                      onResize={(w) => resize(c.key, w)}
+                      onReset={() => resize(c.key, DEFAULT_WIDTHS[c.key])}
+                    />
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="relative block" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((item) => {
+              const photo = photos[item.index]
+              return (
+                <Row
+                  key={photo.id}
+                  index={item.index}
+                  top={item.start - HEADER_HEIGHT}
+                  template={template}
+                  photo={photo}
+                  camera={showCamera ? (cameraNames.get(photo.cameraKey) ?? '') : null}
+                  utc={utcs.get(photo.id)}
+                  status={statuses.size ? (statuses.get(photo.id) ?? null) : undefined}
+                  selected={selection.ids.has(photo.id)}
+                  onSelect={select}
+                />
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </PhotoContextMenu>
   )
 }
 
@@ -213,7 +252,7 @@ function Row({
   /** undefined: no status column. */
   status: MatchStatus | null | undefined
   selected: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, e: React.MouseEvent) => void
 }): React.JSX.Element {
   const path = photo.relDir ? `${photo.relDir}/${photo.name}` : photo.name
   return (
@@ -221,7 +260,7 @@ function Row({
       aria-rowindex={index + 2}
       data-testid="photo-row"
       data-photo-id={photo.id}
-      onClick={() => onSelect(photo.id)}
+      onClick={(e) => onSelect(photo.id, e)}
       className={cn(
         'absolute inset-x-0 grid items-center px-3 text-xs hover:bg-accent',
         selected && 'bg-accent',
@@ -238,7 +277,7 @@ function Row({
           aria-pressed={selected}
           onClick={(e) => {
             e.stopPropagation()
-            onSelect(photo.id)
+            onSelect(photo.id, e)
           }}
           className="block max-w-full truncate rounded-sm text-left font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >

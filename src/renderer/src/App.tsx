@@ -31,12 +31,14 @@ import {
   sortPhotos,
 } from '@renderer/lib/photoFilter'
 import { usePreview } from '@renderer/lib/preview'
+import { EMPTY_SELECTION, only, type Selection } from '@renderer/lib/selection'
 import { clearThumbnailCache } from '@renderer/lib/thumbnails'
 import { localZone, offsetLabel, tzLabel } from '@renderer/lib/time'
+import { writeScopes } from '@renderer/lib/writeScopes'
 import { effectivePhoto } from '@shared/effective'
 import type { DawarichState } from '@shared/ipc'
 import type { LibraryProgress, LibrarySnapshot, PhotoSummary } from '@shared/library'
-import { STATUS_LABELS } from '@shared/match/status'
+import { PLACED_KINDS, STATUS_LABELS } from '@shared/match/status'
 import type { Position, TrackGeometry } from '@shared/preview'
 import type { SettingsView } from '@shared/settings'
 import { applyOffsetCandidate } from '@shared/time/applyOffset'
@@ -58,7 +60,7 @@ import {
 import type { TrackSummary } from '@shared/track/types'
 import type { JournalView } from '@shared/write'
 import { FolderOpen, TriangleAlert } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useDefaultLayout } from 'react-resizable-panels'
 import { UpdateNotice } from './components/UpdateNotice'
 
@@ -92,7 +94,9 @@ export default function App(): React.JSX.Element {
     localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid',
   )
   const [sort, setSort] = useState<Sort | null>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION)
+  const selectedId = selection.primary
+  const [writeOpen, setWriteOpen] = useState(false)
   const [track, setTrack] = useState<TrackSummary | null>(null)
   const [dawarich, setDawarich] = useState<DawarichState | null>(null)
   // Session only: across trips just the camera's name is remembered (user decision 4).
@@ -280,7 +284,7 @@ export default function App(): React.JSX.Element {
         setManual({})
         setCameraFilter(null)
         setStatusFilter(null)
-        setSelectedId(null)
+        setSelection(EMPTY_SELECTION)
       }
       setLoad({ status: 'idle' })
     } catch (error) {
@@ -438,6 +442,36 @@ export default function App(): React.JSX.Element {
       : filtered
   }, [cameraPhotos, activeStatusFilter, statuses, utcs, view, sort, cameraNames])
 
+  const canWrite = useCallback(
+    (id: string) => {
+      const kind = statuses.get(id)?.kind
+      return kind !== undefined && PLACED_KINDS.has(kind)
+    },
+    [statuses],
+  )
+  const countWritable = useCallback(
+    (ids: readonly string[]) => ids.filter(canWrite).length,
+    [canWrite],
+  )
+  const filtered = cameraFilter !== null || activeStatusFilter !== null
+  const scopes = useMemo(() => {
+    const primary = selected && library && library.cameras.length > 1 ? selected : null
+    return writeScopes({
+      selected: [...selection.ids],
+      view: filtered ? shownPhotos.map((p) => p.id) : null,
+      camera: primary
+        ? {
+            name: cameraNames.get(primary.cameraKey) ?? '',
+            ids: (libraryPhotos ?? [])
+              .filter((p) => p.cameraKey === primary.cameraKey)
+              .map((p) => p.id),
+          }
+        : null,
+      all: libraryPhotos?.map((p) => p.id) ?? [],
+      canWrite,
+    })
+  }, [selection, selected, library, filtered, shownPhotos, cameraNames, libraryPhotos, canWrite])
+
   /** Selecting from the map: filters that would hide the photo get out of the way. */
   const selectFromMap = (id: string | null): void => {
     const photo = id ? libraryPhotos?.find((p) => p.id === id) : undefined
@@ -449,7 +483,7 @@ export default function App(): React.JSX.Element {
     ) {
       setStatusFilter(null)
     }
-    setSelectedId(id)
+    setSelection(only(id))
   }
 
   const applyOffset = (photo: PhotoSummary, candidate: OffsetCandidate): void => {
@@ -652,6 +686,9 @@ export default function App(): React.JSX.Element {
                   <RecoveryMenu writes={writes} onChanged={reloadAfterRestore} />
                   {settings && library && (
                     <WriteDialog
+                      open={writeOpen}
+                      onOpenChange={setWriteOpen}
+                      scopes={scopes}
                       snapshot={preview.snapshot}
                       previewRunning={preview.running}
                       writing={settings.writing}
@@ -774,8 +811,10 @@ export default function App(): React.JSX.Element {
                             showCamera={cameraFilter === null && library.cameras.length > 1}
                             sort={sort}
                             onSort={setSort}
-                            selectedId={selectedId}
-                            onSelect={setSelectedId}
+                            selection={selection}
+                            onSelection={setSelection}
+                            onWrite={() => setWriteOpen(true)}
+                            writable={countWritable}
                           />
                         ) : (
                           <PhotoGrid
@@ -785,8 +824,10 @@ export default function App(): React.JSX.Element {
                             statuses={statuses}
                             showCamera={cameraFilter === null && library.cameras.length > 1}
                             tileWidth={tileWidth}
-                            selectedId={selectedId}
-                            onSelect={setSelectedId}
+                            selection={selection}
+                            onSelection={setSelection}
+                            onWrite={() => setWriteOpen(true)}
+                            writable={countWritable}
                           />
                         )}
                       </div>
