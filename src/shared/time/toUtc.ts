@@ -51,14 +51,22 @@ function possibleInstantCount(wall: Temporal.PlainDateTime, zone: string): numbe
   return earlier.epochNanoseconds === later.epochNanoseconds ? 1 : 2
 }
 
-/** Every UTC offset (seconds) the segment can give this wall time: two around a DST change. */
-function segmentOffsets(segment: Segment, wall: Temporal.PlainDateTime): number[] {
-  if (segment.tz.kind === 'offset') return [parseOffset(segment.tz.value) ?? 0]
+/**
+ * Every UTC offset (seconds) the segment gives this wall time: two in a repeated (fall-back) hour.
+ * A skipped (spring-forward) wall time has no real reading, so only the one it resolves to counts.
+ */
+function segmentOffsets(
+  segment: Segment,
+  wall: Temporal.PlainDateTime,
+  resolved: number,
+): number[] {
+  if (segment.tz.kind === 'offset') return [resolved]
   const zone = segment.tz.id
-  return [
-    wall.toZonedDateTime(zone, { disambiguation: 'earlier' }).offsetNanoseconds / 1e9,
-    wall.toZonedDateTime(zone, { disambiguation: 'later' }).offsetNanoseconds / 1e9,
-  ]
+  const readings = (['earlier', 'later'] as const)
+    .map((disambiguation) => wall.toZonedDateTime(zone, { disambiguation }))
+    .filter((zdt) => zdt.toPlainDateTime().equals(wall))
+    .map((zdt) => zdt.offsetNanoseconds / 1e9)
+  return readings.length > 0 ? readings : [resolved]
 }
 
 const minusDrift = (instant: Temporal.Instant, driftSeconds: number): Temporal.Instant =>
@@ -82,7 +90,11 @@ export function photoUtc(photo: PhotoTimeInput, settings: CameraTimeSettings): P
       1_000_000_000n,
   )
   // A recorded offset that picks one of a repeated hour's two readings agrees with the zone.
-  if (recorded !== null && settings.confirmed && !segmentOffsets(segment, wall).includes(recorded))
+  if (
+    recorded !== null &&
+    settings.confirmed &&
+    !segmentOffsets(segment, wall, segmentOffset).includes(recorded)
+  )
     warnings.push('offset-conflict')
 
   if (settings.useRecordedOffsets && recorded !== null) {

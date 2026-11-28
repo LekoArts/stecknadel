@@ -138,6 +138,21 @@ describe('detectCameraSettings', () => {
     expect(timed(photo('2026:11:01 01:30:00', '-06:00')).warnings).toEqual(['offset-conflict'])
   })
 
+  it('a recorded offset for a skipped spring-forward time still conflicts', () => {
+    const berlin: CameraTimeSettings = {
+      useRecordedOffsets: true,
+      segments: [{ tz: { kind: 'zone', id: 'Europe/Berlin' }, driftSeconds: 0 }],
+      confirmed: true,
+    }
+    const warnings = (wall: string, offset: string) =>
+      photoUtc({ captureTime: wall, subSec: null, offsetTimeOriginal: offset }, berlin).warnings
+    // 02:30 doesn't exist in Berlin on 2026-03-29: neither side's offset is a reading of it.
+    expect(warnings('2026:03:29 02:30:00', '+02:00')).toEqual(['offset-conflict'])
+    // Either side of the change, the right offset is fine.
+    expect(warnings('2026:03:29 01:30:00', '+01:00')).toEqual([])
+    expect(warnings('2026:03:29 03:30:00', '+02:00')).toEqual([])
+  })
+
   it('finds the same zone change after the first photo in the new zone got its offset written', () => {
     const walls = ['2026:11:05 10:00:00', '2026:11:07 13:28:21', '2026:11:09 09:00:00']
     const before = detectCameraSettings(
