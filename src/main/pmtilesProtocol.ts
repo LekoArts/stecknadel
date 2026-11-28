@@ -16,24 +16,30 @@ function fileRange(file: string, start: number, end: number): ReadableStream<Uin
   const close = async (): Promise<void> => {
     if (done) return
     done = true
-    await (await handle)?.close()
+    await (await handle?.catch(() => null))?.close()
   }
   return new ReadableStream<Uint8Array>(
     {
       async pull(controller) {
-        handle ??= open(file, 'r')
-        const size = Math.min(CHUNK, end + 1 - pos)
-        const buf = Buffer.alloc(Math.max(size, 0))
-        const { bytesRead } =
-          size > 0 ? await (await handle).read(buf, 0, size, pos) : { bytesRead: 0 }
-        if (done) return // cancelled while reading
-        if (bytesRead === 0) {
+        try {
+          handle ??= open(file, 'r')
+          const size = Math.min(CHUNK, end + 1 - pos)
+          const buf = Buffer.alloc(Math.max(size, 0))
+          const { bytesRead } =
+            size > 0 ? await (await handle).read(buf, 0, size, pos) : { bytesRead: 0 }
+          if (done) return // cancelled while reading
+          if (bytesRead === 0) {
+            await close()
+            controller.close()
+            return
+          }
+          pos += bytesRead
+          controller.enqueue(new Uint8Array(buf.buffer, buf.byteOffset, bytesRead))
+        } catch (e) {
+          // An errored stream is not cancelled, so the handle is closed here.
           await close()
-          controller.close()
-          return
+          throw e
         }
-        pos += bytesRead
-        controller.enqueue(new Uint8Array(buf.buffer, buf.byteOffset, bytesRead))
       },
       cancel: close,
     },
