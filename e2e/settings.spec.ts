@@ -155,11 +155,22 @@ test('changing GeoMaxIntSecs changes a photo’s status in the preview', async (
     dialog = await openSettings(app, page)
     await expect(dialog.getByLabel('Interpolate between points up to')).toHaveValue('240')
     await dialog.getByLabel('Interpolate between points up to').fill('30')
+    // A bad value in a field that unchecking disables doesn't block Save.
+    await dialog.getByLabel('Within').fill('')
     await dialog.getByRole('checkbox', { name: /Bridge gaps/ }).uncheck()
+    await expect(dialog.getByLabel('Within')).toHaveValue('250')
     await dialog.getByRole('button', { name: 'Save' }).click()
     await expect(dialog).toBeHidden()
     // Without bridging the stay is a plain gap.
     await expect.poll(status).toBe('in-gap')
+
+    // Closing Settings returns focus to where it was, menu or gear.
+    const tile = page.getByTestId('photo-tile')
+    await tile.focus()
+    dialog = await openSettings(app, page)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    if (process.platform === 'darwin') await expect(tile).toBeFocused()
   } finally {
     await close()
   }

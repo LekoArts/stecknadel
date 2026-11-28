@@ -21,7 +21,7 @@ import {
   type WritingSettings,
 } from '@shared/settings'
 import { LoaderCircle, Settings as SettingsIcon } from 'lucide-react'
-import { type ReactNode, useEffect, useEffectEvent, useId, useState } from 'react'
+import { type ReactNode, useEffect, useEffectEvent, useId, useRef, useState } from 'react'
 
 interface SettingsDialogProps {
   settings: SettingsView
@@ -103,8 +103,13 @@ export function SettingsDialog({
     setOpen(next)
   }
   // The app menu's Settings item (the only way in on macOS), unless another dialog is up.
+  const returnFocus = useRef<HTMLElement | null>(null)
   const openFromMenu = useEffectEvent(() => {
-    if (!open && !document.querySelector('[role="dialog"]')) onOpenChange(true)
+    if (open || document.querySelector('[role="dialog"]')) return
+    // No trigger to return to, so go back to wherever the user was.
+    returnFocus.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    onOpenChange(true)
   })
   useEffect(() => window.stecknadel.on('openSettings', () => openFromMenu()), [])
   const set = (patch: Partial<Draft>): void => setDraft((d) => ({ ...d, ...patch }))
@@ -158,6 +163,14 @@ export function SettingsDialog({
           e.preventDefault()
           ;(e.currentTarget as HTMLElement).focus()
         }}
+        onCloseAutoFocus={(e) => {
+          const target = returnFocus.current
+          returnFocus.current = null
+          if (target?.isConnected) {
+            e.preventDefault()
+            target.focus()
+          }
+        }}
       >
         <form
           onSubmit={(e) => {
@@ -170,6 +183,7 @@ export function SettingsDialog({
             e.currentTarget.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus()
           }}
           className="flex min-h-0 flex-col"
+          noValidate
         >
           <DialogHeader className="px-6 pt-6 pb-2">
             <DialogTitle>Settings</DialogTitle>
@@ -207,7 +221,20 @@ export function SettingsDialog({
               <Check
                 id={`${ids}-bridge`}
                 checked={draft.bridgeEnabled}
-                onChange={(v) => set({ bridgeEnabled: v })}
+                onChange={(v) => {
+                  if (v) return set({ bridgeEnabled: true })
+                  // Fields that can't be edited can't hold Save back: put back what was saved.
+                  const saved = toDraft(settings)
+                  set({
+                    bridgeEnabled: false,
+                    ...(invalid.has('matching.bridge.radiusMeters') && {
+                      bridgeRadius: saved.bridgeRadius,
+                    }),
+                    ...(invalid.has('matching.bridge.maxGapHours') && {
+                      bridgeHours: saved.bridgeHours,
+                    }),
+                  })
+                }}
               >
                 Bridge gaps where the track starts and ends at the same place
               </Check>
