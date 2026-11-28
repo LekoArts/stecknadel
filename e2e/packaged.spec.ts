@@ -84,7 +84,8 @@ test('installed app: geotags synthetic photos exactly as the oracle says', async
   const rows: string[] = []
   try {
     await openFolder(app, page, dir)
-    await expect(page.getByTestId('photo-tile')).toHaveCount(CASES.length, { timeout: 30_000 })
+    // Not the tiles: the grid is virtualized and a small CI screen shows fewer than all of them.
+    await expect(page.getByTestId('camera')).toHaveCount(1, { timeout: 30_000 })
     await app.evaluate(({ dialog }, chosen) => {
       dialog.showOpenDialog = (async () => ({
         canceled: false,
@@ -94,6 +95,12 @@ test('installed app: geotags synthetic photos exactly as the oracle says', async
     await page.getByRole('button', { name: 'Open GPX file' }).click()
     await expect(page.getByTestId('track-summary')).toContainText('663 points')
     await expect(page.getByTestId('preview-state')).toBeHidden({ timeout: 60_000 })
+    const legend = page.getByTestId('legend')
+    for (const [kind, n] of Object.entries(
+      Object.groupBy(CASES, (c) => c.expect) as Record<string, Case[]>,
+    )) {
+      await expect(legend.locator(`[data-kind="${kind}"]`)).toContainText(String(n.length))
+    }
 
     await page.getByRole('button', { name: 'Write', exact: true }).click()
     const confirm = page.getByRole('dialog', { name: 'Write 3 positions' })
