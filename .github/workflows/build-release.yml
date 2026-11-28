@@ -89,9 +89,13 @@ jobs:
         run: |
           version=$(node -p "require('./package.json').version")
           cp test/fixtures/generated/smoke.jpg "$RUNNER_TEMP/steck-smoke.jpg"
-          STECKNADEL_SMOKE_FILE="$RUNNER_TEMP/steck-smoke.jpg" "./dist/Stecknadel-$version-portable.exe" > smoke.log 2>&1 || true
-          grep STECKNADEL_SMOKE smoke.log || { cat smoke.log; exit 1; }
-          grep -q "^STECKNADEL_SMOKE ok " smoke.log
+          out="$RUNNER_TEMP/steck-smoke.txt"
+          # The portable launcher unpacks and re-spawns the app, so its stdout is lost: read the file.
+          STECKNADEL_SMOKE_FILE="$(cygpath -w "$RUNNER_TEMP/steck-smoke.jpg")" STECKNADEL_SMOKE_OUT="$(cygpath -w "$out")" \
+            "./dist/Stecknadel-$version-portable.exe" || true
+          for _ in $(seq 60); do [ -s "$out" ] && break; sleep 2; done
+          cat "$out"
+          grep -q "^STECKNADEL_SMOKE ok " "$out"
       - name: Installed app end to end
         run: pnpm exec playwright test --project=installed
         env:

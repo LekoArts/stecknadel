@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
@@ -147,12 +147,19 @@ async function choosePath(options: Electron.OpenDialogOptions): Promise<string |
 
 async function smokeAndExit(file: string): Promise<void> {
   let code = 1
+  let line: string
   try {
-    const { ok, line } = await runSmoke(exiftool, file)
-    console.log(line)
-    code = ok ? 0 : 1
+    const result = await runSmoke(exiftool, file)
+    line = result.line
+    code = result.ok ? 0 : 1
   } catch (error) {
-    console.log(`STECKNADEL_SMOKE error ${error instanceof Error ? error.message : String(error)}`)
+    line = `STECKNADEL_SMOKE error ${error instanceof Error ? error.message : String(error)}`
+  }
+  try {
+    console.log(line)
+    // The Windows portable exe re-spawns the app without its stdout; CI reads this file instead.
+    const out = process.env.STECKNADEL_SMOKE_OUT
+    if (out) await writeFile(out, `${line}\n`)
   } finally {
     await exiftool.end()
   }
