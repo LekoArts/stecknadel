@@ -23,7 +23,7 @@ interface Column {
 const WIDTHS_KEY = 'stecknadel.listColumns.v1'
 /** Pixel widths. Name is a minimum: it also takes the space the others leave. */
 const DEFAULT_WIDTHS: Record<SortKey, number> = {
-  name: 128,
+  name: 240,
   camera: 160,
   captured: 208,
   utc: 152,
@@ -87,9 +87,11 @@ export function PhotoList({
     { key: 'utc', label: 'UTC' },
     ...(statuses.size ? [{ key: 'status' as const, label: 'Status' }] : []),
   ]
-  // Thumbnail, then the sortable columns.
+  // Thumbnail, then the sortable columns. The last one takes the spare room, like Finder's,
+  // so every handle moves the edge it sits on.
+  const last = columns[columns.length - 1].key
   const template = `2.5rem ${columns
-    .map((c) => (c.key === 'name' ? `minmax(${widths.name}px,1fr)` : `${widths[c.key]}px`))
+    .map((c) => (c.key === last ? `minmax(${widths[c.key]}px,1fr)` : `${widths[c.key]}px`))
     .join(' ')}`
 
   const virtualizer = useVirtualizer({
@@ -155,12 +157,14 @@ export function PhotoList({
                       <ArrowDown className="size-3" />
                     ))}
                 </button>
-                <ResizeHandle
-                  label={c.label}
-                  width={widths[c.key]}
-                  onResize={(w) => resize(c.key, w)}
-                  onReset={() => resize(c.key, DEFAULT_WIDTHS[c.key])}
-                />
+                {c.key !== last && (
+                  <ResizeHandle
+                    label={c.label}
+                    width={widths[c.key]}
+                    onResize={(w) => resize(c.key, w)}
+                    onReset={() => resize(c.key, DEFAULT_WIDTHS[c.key])}
+                  />
+                )}
               </th>
             ))}
           </tr>
@@ -324,9 +328,7 @@ function ResizeHandle({
       onPointerDown={(e) => {
         e.preventDefault()
         e.currentTarget.setPointerCapture(e.pointerId)
-        // From the drawn width: Name may be wider than its minimum.
-        const drawn = e.currentTarget.parentElement?.getBoundingClientRect().width ?? width
-        drag.current = { x: e.clientX, width: drawn }
+        drag.current = { x: e.clientX, width }
       }}
       onPointerMove={(e) => {
         if (drag.current) onResize(drag.current.width + e.clientX - drag.current.x)

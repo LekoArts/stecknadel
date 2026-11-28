@@ -319,7 +319,10 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
     await panelCommand(app, 'cameras')
     await toolbar.getByRole('combobox', { name: 'Camera' }).click()
     await page.getByRole('option', { name: /Camera C/ }).click()
+    // Panel commands wait out open popovers.
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     await panelCommand(app, 'cameras')
+    await expect.poll(() => width(page, 'Cameras')).toBeGreaterThan(200)
     await expect(
       page
         .getByTestId('camera')
@@ -345,14 +348,20 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
     await page.mouse.down()
     await page.mouse.move(edge.x + edge.width / 2 + 60, edge.y + edge.height / 2, { steps: 5 })
     await page.mouse.up()
-    expect(await capturedWidth()).toBeCloseTo(before + 60, 0)
+    await expect.poll(capturedWidth).toBeCloseTo(before + 60, 0)
     // The rows follow the header (thumbnail, name, camera, captured).
-    const cell = await rows.first().getByRole('cell').nth(3).boundingBox()
-    expect(cell?.width).toBeCloseTo(before + 60, 0)
+    const cell = async () => (await rows.first().getByRole('cell').nth(3).boundingBox())?.width
+    await expect.poll(cell).toBeCloseTo(before + 60, 0)
     await captured.getByRole('separator').press('ArrowLeft')
-    expect(await capturedWidth()).toBeCloseTo(before + 52, 0)
+    await expect.poll(capturedWidth).toBeCloseTo(before + 52, 0)
     await captured.getByRole('separator').dblclick()
-    expect(await capturedWidth()).toBeCloseTo(before, 0)
+    await expect.poll(capturedWidth).toBeCloseTo(before, 0)
+    // Name narrows too, even with room to spare: the last column takes the spare room.
+    const name = page.getByRole('columnheader', { name: 'Name' })
+    const nameWidth = async (): Promise<number> => (await name.boundingBox())?.width ?? 0
+    const nameBefore = await nameWidth()
+    await name.getByRole('separator').press('Shift+ArrowLeft')
+    await expect.poll(nameWidth).toBeCloseTo(nameBefore - 32, 0)
 
     // The grid's thumbnail size slider.
     await toolbar.getByRole('button', { name: 'Grid' }).click()
@@ -362,8 +371,14 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
     await expect.poll(async () => (await tile.boundingBox())?.width).toBeCloseTo(280, 0)
     await toolbar.getByRole('slider', { name: 'Thumbnail size' }).press('Home')
     await expect.poll(async () => (await tile.boundingBox())?.width).toBeCloseTo(120, 0)
+    // Both survive a reload.
+    await page.reload()
+    await openFolder(app, page, dir)
+    await expect.poll(async () => (await tile.boundingBox())?.width).toBeCloseTo(120, 0)
     await toolbar.getByRole('button', { name: 'List' }).click()
     await expect(toolbar.getByRole('slider')).toHaveCount(0)
+    await expect.poll(nameWidth).toBeCloseTo(nameBefore - 32, 0)
+    await name.getByRole('separator').press('Home')
 
     // A click beside the rows clears the selection.
     await rows.first().click()
