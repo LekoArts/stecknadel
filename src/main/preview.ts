@@ -40,12 +40,23 @@ export function geotagArgs(csvPath: string, gpxPath: string, limits: MatchLimits
   ]
 }
 
-const csvField = (value: string): string =>
+export const csvField = (value: string): string =>
   /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
 
-/** `SourceFile,Geotime` rows; the same path strings must be passed as the file arguments. */
-export function geotimeCsv(rows: { file: string; geotime: string }[]): string {
-  return `SourceFile,Geotime\n${rows.map((r) => `${csvField(r.file)},${r.geotime}`).join('\n')}\n`
+/**
+ * `SourceFile,Geotime[,OffsetTimeOriginal,XMP-exif:DateTimeOriginal]` rows; the same path strings
+ * must be passed as the file arguments. Empty cells write nothing.
+ */
+export function geotimeCsv(
+  rows: { file: string; geotime: string; oto?: string | null; xmpDto?: string | null }[],
+): string {
+  const offsets = rows.some((r) => r.oto || r.xmpDto)
+  const head = offsets
+    ? 'SourceFile,Geotime,OffsetTimeOriginal,XMP-exif:DateTimeOriginal'
+    : 'SourceFile,Geotime'
+  const line = (r: (typeof rows)[number]): string =>
+    [r.file, r.geotime, ...(offsets ? [r.oto ?? '', r.xmpDto ?? ''] : [])].map(csvField).join(',')
+  return `${head}\n${rows.map(line).join('\n')}\n`
 }
 
 /** GPS as ExifTool printed it (`-n`), decimal strings verbatim. */
@@ -191,12 +202,23 @@ export class PreviewEngine {
   private prepared: PreparedTrack | null = null
   private cache = new Map<string, CameraCache>()
   private last: PreviewSnapshot | null = null
+  private lastInput: PreviewInput | null = null
 
   constructor(private readonly et: ExifTool) {}
 
   /** The latest snapshot shown to the renderer; what a write confirms. */
   get snapshot(): PreviewSnapshot | null {
     return this.last
+  }
+
+  /** The inputs of the snapshot shown as `generation`, or null when that is not the latest. */
+  confirmed(generation: number): PreviewInput | null {
+    return this.last?.generation === generation ? this.lastInput : null
+  }
+
+  /** The bridged GPX the last run used: a write geotags with exactly this file. */
+  get gpx(): string | null {
+    return this.prepared?.gpx ?? null
   }
 
   run(input: PreviewInput, ctx: PreviewContext): Promise<PreviewSnapshot | null> {
@@ -297,6 +319,7 @@ export class PreviewEngine {
       return { id: photo.id, status, position, utc }
     })
 
+    this.lastInput = input
     this.last = {
       generation: input.generation,
       results,

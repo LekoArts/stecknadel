@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { lstat } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { cameraIdentity } from '@shared/cameras/identity'
 import type {
@@ -12,9 +13,26 @@ import type { ExifTool } from 'exiftool-vendored'
 import { type PhotoTags, readAll, readSidecarTags } from './read'
 import { type ScannedPhoto, scanFolder } from './scan'
 
+/** Size and modification time, to tell whether a file changed since it was read. */
+export interface Stamp {
+  size: number
+  mtimeMs: number
+}
+
+export async function stampOf(path: string): Promise<Stamp | null> {
+  try {
+    const s = await lstat(path)
+    return s.isFile() ? { size: s.size, mtimeMs: s.mtimeMs } : null
+  } catch {
+    return null
+  }
+}
+
 export interface LoadedPhoto {
   id: string
   file: ScannedPhoto
+  /** The photo and its sidecar as they were when their metadata was read. */
+  stamps: { photo: Stamp | null; sidecar: Stamp | null }
   tags: PhotoTags
   summary: PhotoSummary
 }
@@ -50,6 +68,12 @@ export class Library {
       onProgress?.({ phase: 'scanning', done: found, total: 0 }),
     )
     if (generation !== this.generation) return null
+    const stamps = await Promise.all(
+      files.map(async (f) => ({
+        photo: await stampOf(f.path),
+        sidecar: f.sidecarPath ? await stampOf(f.sidecarPath) : null,
+      })),
+    )
     onProgress?.({ phase: 'reading', done: 0, total: files.length })
     let last = 0
     const tags = await readAll(
@@ -90,7 +114,7 @@ export class Library {
         sidecarCollision: file.sidecarCollision,
         readError: t.error,
       }
-      photos.set(id, { id, file, tags: t, summary })
+      photos.set(id, { id, file, stamps: stamps[i], tags: t, summary })
 
       const camera = cameras.get(identity.key) ?? {
         key: identity.key,

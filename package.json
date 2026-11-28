@@ -21,7 +21,7 @@
     "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
     "test": "vitest run",
     "test:e2e": "playwright test --project=packaged-dir",
-    "test:native": "vitest run src/main/exiftool.test.ts src/main/library/read.test.ts src/main/thumbs.test.ts src/main/ipc-auth.test.ts src/main/preview.test.ts src/main/track/bridge.test.ts src/main/track/zones.test.ts",
+    "test:native": "vitest run src/main/exiftool.test.ts src/main/library/read.test.ts src/main/thumbs.test.ts src/main/ipc-auth.test.ts src/main/preview.test.ts src/main/track/bridge.test.ts src/main/track/zones.test.ts src/main/write.test.ts src/main/backups.test.ts",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
