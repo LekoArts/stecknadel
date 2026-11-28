@@ -25,6 +25,13 @@ export interface PhotoGps {
   altitude: number | null
 }
 
+/** What an existing sidecar already says. */
+export interface SidecarTags {
+  gps: PhotoGps | null
+  /** `XMP-exif:DateTimeOriginal` verbatim, e.g. `2024:05:10 12:05:39.47+02:00`. */
+  dateTimeOriginal: string | null
+}
+
 /** What the renderer knows about one photo. Never used to address files: only `id` goes back. */
 export interface PhotoSummary {
   id: string
@@ -39,7 +46,8 @@ export interface PhotoSummary {
   offsetTimeOriginal: string | null
   gps: PhotoGps | null
   orientation: number
-  hasSidecar: boolean
+  /** The RAW's existing `.xmp` sidecar, as found when the folder was read. */
+  sidecar: SidecarTags | null
   sidecarCollision: boolean
   readError: string | null
 }

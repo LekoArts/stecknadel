@@ -19,6 +19,8 @@ export type PhotoUtc =
       utc: Temporal.Instant
       source: 'recorded-offset' | 'segment'
       wall: Temporal.PlainDateTime
+      /** The UTC offset the camera clock is read in (seconds, before drift): what a write records. */
+      offsetSeconds: number
       warnings: TimeWarning[]
     }
 
@@ -65,14 +67,12 @@ export function photoUtc(photo: PhotoTimeInput, settings: CameraTimeSettings): P
   const resolved = resolveSegment(segment, wall)
   const recorded = parseOffset(photo.offsetTimeOriginal)
   const warnings: TimeWarning[] = []
-
-  if (recorded !== null && settings.confirmed) {
-    const segmentOffset = Number(
-      (wall.toZonedDateTime('UTC').epochNanoseconds - resolved.instant.epochNanoseconds) /
-        1_000_000_000n,
-    )
-    if (segmentOffset !== recorded) warnings.push('offset-conflict')
-  }
+  const segmentOffset = Number(
+    (wall.toZonedDateTime('UTC').epochNanoseconds - resolved.instant.epochNanoseconds) /
+      1_000_000_000n,
+  )
+  if (recorded !== null && settings.confirmed && segmentOffset !== recorded)
+    warnings.push('offset-conflict')
 
   if (settings.useRecordedOffsets && recorded !== null) {
     const utcNs = wall.toZonedDateTime('UTC').epochNanoseconds - BigInt(recorded) * 1_000_000_000n
@@ -80,6 +80,7 @@ export function photoUtc(photo: PhotoTimeInput, settings: CameraTimeSettings): P
       utc: minusDrift(Temporal.Instant.fromEpochNanoseconds(utcNs), segment.driftSeconds),
       source: 'recorded-offset',
       wall,
+      offsetSeconds: recorded,
       warnings,
     }
   }
@@ -89,6 +90,7 @@ export function photoUtc(photo: PhotoTimeInput, settings: CameraTimeSettings): P
     utc: minusDrift(resolved.instant, segment.driftSeconds),
     source: 'segment',
     wall,
+    offsetSeconds: segmentOffset,
     warnings,
   }
 }

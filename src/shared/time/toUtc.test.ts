@@ -211,6 +211,16 @@ describe('offset-conflict warning', () => {
     expect(result).toMatchObject({ source: 'segment', warnings: ['offset-conflict'] })
     expectLandsAt(synthetic, p, off, trueUtc)
   })
+
+  it('reports the offset it read the clock in: the segment, or the recorded one', () => {
+    const summer = photo(wallFor(trueUtc, 2 * H), null)
+    expect(photoUtc(summer, zone('Europe/Zurich'))).toMatchObject({ offsetSeconds: 2 * H })
+    const recorded = photo(wallFor(trueUtc, -7 * H), '-07:00')
+    expect(photoUtc(recorded, zone('Europe/Zurich'))).toMatchObject({
+      source: 'recorded-offset',
+      offsetSeconds: -7 * H,
+    })
+  })
 })
 
 describe('DST transitions', () => {

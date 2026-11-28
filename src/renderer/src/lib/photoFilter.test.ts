@@ -17,7 +17,7 @@ function photo(id: string, extra: Partial<PhotoSummary> = {}): PhotoSummary {
     offsetTimeOriginal: null,
     gps: null,
     orientation: 1,
-    hasSidecar: false,
+    sidecar: null,
     sidecarCollision: false,
     readError: null,
     ...extra,
@@ -27,6 +27,7 @@ function photo(id: string, extra: Partial<PhotoSummary> = {}): PhotoSummary {
 const time = (iso: string, warnings: PhotoUtc['warnings'] = []): PhotoUtc => ({
   utc: Temporal.Instant.from(iso),
   source: 'segment',
+  offsetSeconds: 0,
   wall: Temporal.PlainDateTime.from(iso.slice(0, 19)),
   warnings,
 })

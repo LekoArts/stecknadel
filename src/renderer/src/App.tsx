@@ -31,6 +31,7 @@ import {
 import { usePreview } from '@renderer/lib/preview'
 import { clearThumbnailCache } from '@renderer/lib/thumbnails'
 import { localZone, offsetLabel, tzLabel } from '@renderer/lib/time'
+import { effectivePhoto } from '@shared/effective'
 import type { DawarichState } from '@shared/ipc'
 import type { LibraryProgress, LibrarySnapshot, PhotoSummary } from '@shared/library'
 import { STATUS_LABELS } from '@shared/match/status'
@@ -104,7 +105,12 @@ export default function App(): React.JSX.Element {
   const defaultSettings = useMemo(() => defaultCameraSettings(localZone()), [])
   // Renaming a camera replaces the library wrapper but not its photos: derive from the array so a
   // rename doesn't rerun zone detection, UTC conversion and the preview.
-  const libraryPhotos = library?.photos ?? null
+  const rawTarget = settings?.writing.rawTarget ?? 'in-file'
+  // As a write sees them: in sidecar mode a RAW's GPS and offset include its sidecar's.
+  const libraryPhotos = useMemo(
+    () => library?.photos.map((p) => effectivePhoto(p, rawTarget)) ?? null,
+    [library?.photos, rawTarget],
+  )
   // Settings from the track for each camera the user hasn't set: the clock showed local time.
   const detected = useMemo(() => {
     const out = new Map<string, CameraTimeSettings>()
@@ -405,7 +411,7 @@ export default function App(): React.JSX.Element {
 
   /** Selecting from the map: filters that would hide the photo get out of the way. */
   const selectFromMap = (id: string | null): void => {
-    const photo = id ? library?.photos.find((p) => p.id === id) : undefined
+    const photo = id ? libraryPhotos?.find((p) => p.id === id) : undefined
     if (photo && cameraFilter !== null && photo.cameraKey !== cameraFilter) setCameraFilter(null)
     if (
       photo &&

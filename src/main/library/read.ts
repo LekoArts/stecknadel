@@ -1,5 +1,5 @@
 import type { CameraTags } from '@shared/cameras/identity'
-import type { PhotoGps } from '@shared/library'
+import type { PhotoGps, SidecarTags } from '@shared/library'
 import type { ExifTool } from 'exiftool-vendored'
 
 export const LIBRARY_TAGS = [
@@ -139,4 +139,27 @@ export async function readAll(
       return tags
     }),
   )
+}
+
+/** GPS and `DateTimeOriginal` of an existing `.xmp` sidecar; null when it can't be read. */
+export async function readSidecarTags(et: ExifTool, file: string): Promise<SidecarTags | null> {
+  try {
+    const raw: Record<string, unknown> = await et.readRaw(file, {
+      readArgs: [
+        '-n',
+        '-XMP-exif:GPSLatitude',
+        '-XMP-exif:GPSLongitude',
+        '-XMP-exif:GPSAltitude',
+        '-XMP-exif:GPSAltitudeRef',
+        '-XMP-exif:DateTimeOriginal',
+      ],
+    })
+    const dto = raw.DateTimeOriginal
+    return {
+      gps: gpsOf(raw),
+      dateTimeOriginal: typeof dto === 'string' ? dto : dto === undefined ? null : String(dto),
+    }
+  } catch {
+    return null
+  }
 }

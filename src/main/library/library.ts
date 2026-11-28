@@ -9,7 +9,7 @@ import type {
   PhotoSummary,
 } from '@shared/library'
 import type { ExifTool } from 'exiftool-vendored'
-import { type PhotoTags, readAll } from './read'
+import { type PhotoTags, readAll, readSidecarTags } from './read'
 import { type ScannedPhoto, scanFolder } from './scan'
 
 export interface LoadedPhoto {
@@ -64,6 +64,10 @@ export class Library {
       },
     )
     if (generation !== this.generation) return null
+    const sidecars = await Promise.all(
+      files.map((f) => (f.sidecarPath ? readSidecarTags(this.et, f.sidecarPath) : null)),
+    )
+    if (generation !== this.generation) return null
 
     const photos = new Map<string, LoadedPhoto>()
     const cameras = new Map<string, CameraInfo>()
@@ -82,7 +86,7 @@ export class Library {
         offsetTimeOriginal: t.offsetTimeOriginal,
         gps: t.gps,
         orientation: t.orientation,
-        hasSidecar: file.sidecarPath !== null,
+        sidecar: sidecars[i],
         sidecarCollision: file.sidecarCollision,
         readError: t.error,
       }

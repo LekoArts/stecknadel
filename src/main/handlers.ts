@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
+import { effectivePhoto } from '@shared/effective'
 import type { DawarichState, IpcEventName, IpcEvents, IpcOutput } from '@shared/ipc'
 import type { MapSource, SettingsView } from '@shared/settings'
 import { summarizeTrack, type Track } from '@shared/track/types'
@@ -154,7 +155,7 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       const { geoMaxIntSecs, geoMaxExtSecs, bridge } = matching
       return deps.preview.run(input, {
         loadId: library.loadId,
-        photos: photos.map((p) => p.summary),
+        photos: photos.map((p) => effectivePhoto(p.summary, writing.rawTarget)),
         track,
         options: {
           limits: { geoMaxIntSecs, geoMaxExtSecs },

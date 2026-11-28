@@ -199,7 +199,7 @@ describe('PreviewEngine', () => {
     offsetTimeOriginal: null,
     gps: null,
     orientation: 1,
-    hasSidecar: false,
+    sidecar: null,
     sidecarCollision: false,
     readError: null,
     ...over,
