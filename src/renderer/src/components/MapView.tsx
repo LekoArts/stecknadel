@@ -8,6 +8,7 @@ import type { GeoJSONSource } from 'maplibre-gl'
 import * as maplibregl from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { shortestBounds } from '../lib/bounds'
 
 maplibregl.setWorkerUrl(workerUrl)
 
@@ -243,9 +244,16 @@ export function MapView({
     if (!map || !source) return
     source.setData(trackFeatures(geometry))
     if (!geometry || geometry.points.length === 0) return
-    const bounds = new maplibregl.LngLatBounds()
-    for (const [, lat, lon] of geometry.points) bounds.extend([lon, lat])
-    map.fitBounds(bounds, { padding: 48, animate: false, maxZoom: 15 })
+    const [west, south, east, north] = shortestBounds(
+      geometry.points.map(([, lat, lon]): [number, number] => [lon, lat]),
+    )
+    map.fitBounds(
+      [
+        [west, south],
+        [east, north],
+      ],
+      { padding: 48, animate: false, maxZoom: 15 },
+    )
   }, [geometry, styleVersion])
 
   // Pins: tween from where they are drawn to the new ExifTool positions (display only).
