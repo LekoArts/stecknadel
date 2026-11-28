@@ -94,8 +94,12 @@ describe('detectCameraSettings', () => {
     expect(settings?.segments[0].tz).toEqual({ kind: 'zone', id: 'America/Los_Angeles' })
   })
 
-  it('skips photos with a recorded offset, and returns null when nothing is left to place', () => {
-    expect(detectCameraSettings([photo('2026:11:08 12:00:00', '-07:00')], trip, true)).toBeNull()
+  it('fits a photo with a recorded offset only to zones with that offset', () => {
+    expect(
+      detectCameraSettings([photo('2026:11:08 12:00:00', '-07:00')], trip, true)?.segments[0].tz,
+    ).toEqual({ kind: 'zone', id: 'America/Vancouver' })
+    // An offset no zone on the track had then: nothing to place.
+    expect(detectCameraSettings([photo('2026:11:08 12:00:00', '+05:30')], trip, true)).toBeNull()
     expect(
       detectCameraSettings([photo('2026:11:08 12:00:00', '-07:00')], trip, false)?.segments[0].tz,
     ).toEqual({ kind: 'zone', id: 'America/Vancouver' })
@@ -103,6 +107,24 @@ describe('detectCameraSettings', () => {
     expect(
       detectCameraSettings([photo('2026:11:08 12:00:00')], { points: [], zones: [] }, true),
     ).toBeNull()
+  })
+
+  it('finds the same zone change after the first photo in the new zone got its offset written', () => {
+    const walls = ['2026:11:05 10:00:00', '2026:11:07 13:28:21', '2026:11:09 09:00:00']
+    const before = detectCameraSettings(
+      walls.map((w) => photo(w)),
+      trip,
+      true,
+    ) as CameraTimeSettings
+    expect(before.segments.map((s) => s.startsAt)).toEqual([undefined, '2026-11-07T13:28:21'])
+
+    // Placed at UTC−07:00, which writing saves in the photo; the library then reloads it.
+    const timed = (p: ReturnType<typeof photo>) => ({ ...p, subSec: null })
+    expect(photoUtc(timed(photo(walls[1])), before).utc?.toString()).toBe('2026-11-07T20:28:21Z')
+    const written = walls.map((w, i) => photo(w, i === 1 ? '-07:00' : null))
+    const after = detectCameraSettings(written, trip, true) as CameraTimeSettings
+    expect(after.segments).toEqual(before.segments)
+    for (const p of written) expect(photoUtc(timed(p), after).warnings).toEqual([])
   })
 
   it('ignores photos the track can’t place', () => {

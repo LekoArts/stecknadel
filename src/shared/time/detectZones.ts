@@ -41,8 +41,10 @@ const offsetNs = (zone: string, epochNs: bigint): number =>
 /**
  * Camera time settings that put every photo where the track was at the time: the clock is assumed
  * to have shown local time. A zone holds as long as the track agrees on the UTC offset; when it
- * stops agreeing, a time change starts at that photo. Photos with a recorded offset (when used)
- * and photos the track can't place are skipped. Null when no photo could be placed.
+ * stops agreeing, a time change starts at that photo. A photo with a recorded offset (when used)
+ * is a known point: only zones with that offset at its instant fit it, so the camera setting agrees
+ * with what the photo says (as after Stecknadel wrote it). Photos the track can't place are skipped.
+ * Null when no photo could be placed.
  */
 export function detectCameraSettings(
   photos: DetectInput[],
@@ -52,22 +54,31 @@ export function detectCameraSettings(
   const candidates = [...new Set(track.zones.filter((z): z is string => z !== null))]
   if (candidates.length === 0) return null
 
-  const walls: Temporal.PlainDateTime[] = []
+  const shots: { wall: Temporal.PlainDateTime; recorded: number | null }[] = []
   for (const p of photos) {
-    if (useRecordedOffsets && p.offsetTimeOriginal && parseOffset(p.offsetTimeOriginal) !== null) {
-      continue
-    }
     const wall = p.captureTime ? parseExifDateTime(p.captureTime) : null
-    if (wall) walls.push(wall)
+    if (!wall) continue
+    shots.push({ wall, recorded: useRecordedOffsets ? parseOffset(p.offsetTimeOriginal) : null })
   }
-  walls.sort(Temporal.PlainDateTime.compare)
+  shots.sort((a, b) => Temporal.PlainDateTime.compare(a.wall, b.wall))
 
   // Per photo: the candidate zones whose reading of the wall time lands where that zone's offset
   // is in force, and the zone actually there (preferred when several fit).
   const fits: { wall: Temporal.PlainDateTime; zones: Set<string>; here: string | null }[] = []
-  for (const wall of walls) {
+  for (const { wall, recorded } of shots) {
     const zones = new Set<string>()
     let here: string | null = null
+    if (recorded !== null) {
+      const instant =
+        wall.toZonedDateTime('UTC').epochNanoseconds - BigInt(recorded) * 1_000_000_000n
+      const local = zoneAt(track, Number(instant / 1_000_000_000n))
+      for (const zone of candidates) {
+        if (offsetNs(zone, instant) === recorded * 1e9) zones.add(zone)
+      }
+      if (local && zones.has(local)) here = local
+      if (zones.size > 0) fits.push({ wall, zones, here })
+      continue
+    }
     for (const zone of candidates) {
       const instant = wall.toZonedDateTime(zone, { disambiguation: 'compatible' }).toInstant()
       const local = zoneAt(track, Number(instant.epochNanoseconds / 1_000_000_000n))
