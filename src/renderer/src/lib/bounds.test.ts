@@ -12,14 +12,14 @@ describe('shortestBounds', () => {
     ).toEqual([7.4, 46.5, 8.5, 47.4])
   })
 
-  it('San Francisco to Seoul: across the Pacific, not the Atlantic', () => {
+  it('San Jose to Seoul: across the Pacific, not the Atlantic', () => {
     const [west, south, east, north] = shortestBounds([
-      [-122.4, 37.8],
+      [-121.9, 37.3],
       [126.98, 37.57],
       [126.44, 37.46],
     ])
-    expect([west, south, north]).toEqual([126.44, 37.46, 37.8])
-    expect(east).toBeCloseTo(-122.4 + 360)
+    expect([west, south, north]).toEqual([126.44, 37.3, 37.57])
+    expect(east).toBeCloseTo(-121.9 + 360)
   })
 
   it('points straddling 180°', () => {

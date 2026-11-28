@@ -20,11 +20,11 @@ function trackOf(stays: [string, string, number, number, string][]): ZonedTrack 
   return { points, zones }
 }
 
-// Berlin, a flight, San Francisco, then Vancouver (permanent −07:00 from Nov 2026).
+// Berlin, a flight, San Jose, then Whistler (permanent −07:00 from Nov 2026).
 const trip = trackOf([
   ['2026-11-01T08:00:00Z', '2026-11-02T08:00:00Z', 52.52, 13.4, 'Europe/Berlin'],
-  ['2026-11-02T22:00:00Z', '2026-11-06T20:00:00Z', 37.8, -122.42, 'America/Los_Angeles'],
-  ['2026-11-07T02:00:00Z', '2026-11-09T20:00:00Z', 49.28, -123.12, 'America/Vancouver'],
+  ['2026-11-02T22:00:00Z', '2026-11-06T20:00:00Z', 37.34, -121.89, 'America/Los_Angeles'],
+  ['2026-11-07T02:00:00Z', '2026-11-09T20:00:00Z', 50.12, -122.96, 'America/Vancouver'],
 ])
 
 const photo = (captureTime: string | null, offsetTimeOriginal: string | null = null) => ({

@@ -16,8 +16,8 @@ const geotime = (t: number): string =>
 
 const T0 = Date.UTC(2026, 10, 3, 18, 0) / 1000
 // About 52 m apart (0.000468° of latitude).
-const STAY_A = { lat: 37.79, lon: -122.4, ele: 10 }
-const STAY_B = { lat: 37.790468, lon: -122.4, ele: 12 }
+const STAY_A = { lat: 37.34, lon: -121.89, ele: 10 }
+const STAY_B = { lat: 37.340468, lon: -121.89, ele: 12 }
 
 /** A few fixes a minute apart, a gap, then a few more. */
 function withGap(gapSecs: number, a = STAY_A, b = STAY_B): TrackPoint[] {
@@ -54,7 +54,7 @@ describe('bridgeTrack', () => {
     const points = withGap(
       697 * 60,
       { lat: 52.2, lon: 7.0, ele: 40 },
-      { lat: 37.6, lon: -122.4, ele: 3 },
+      { lat: 37.15, lon: -121.89, ele: 3 },
     )
     expect(haversineMeters(points[2], points[3])).toBeGreaterThan(1_000_000)
     expect(bridgeTrack(points, 1800, DEFAULT_BRIDGE)).toEqual({ points, intervals: [] })
