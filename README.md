@@ -217,13 +217,15 @@ Click the gear button at the top of the left sidebar.
 | Interpolate between points up to                              | `matching.geoMaxIntSecs`       | The longest time between two track points that a photo may be placed between.                                 | 30 minutes  |
 | Use the nearest point up to                                   | `matching.geoMaxExtSecs`       | The longest time between a photo and the nearest track point, when the photo is not between two close points. | 30 minutes  |
 | Bridge gaps where the track starts and ends at the same place | `matching.bridge.enabled`      | Whether long stops are filled in, see [The track](#the-track).                                                | On          |
-| Same place: within                                            | `matching.bridge.radiusMeters` | How close the points before and after a stop must be.                                                         | 250 m       |
+| Within                                                        | `matching.bridge.radiusMeters` | How close the points before and after a stop must be.                                                         | 250 m       |
 | Gaps up to                                                    | `matching.bridge.maxGapHours`  | The longest stop that is filled in.                                                                           | 24 hours    |
 | Replace GPS positions photos already have                     | `writing.overwriteGps`         | Write photos that already have a position.                                                                    | Off         |
 | Write the time zone offset (OffsetTimeOriginal)               | `writing.writeOffsetTime`      | Also save the time zone offset into each written photo.                                                       | On          |
 | Keep a copy of each original file                             | `writing.backups`              | Keep `<file>_original` next to each edited file, so you can restore it.                                       | Off         |
 | For RAW files, write into                                     | `writing.rawTarget`            | The RAW file itself (`in-file`), or an `.xmp` sidecar next to it (`sidecar`).                                 | RAW file    |
 | Map                                                           | `mapSource`                    | OpenFreeMap (needs internet), your own map style address, or a local PMTiles file that works offline.         | OpenFreeMap |
+
+`settings.json` also keeps the Dawarich server address you saved (`dawarichUrl`). The API key is never in this file.
 
 ## Updates
 
