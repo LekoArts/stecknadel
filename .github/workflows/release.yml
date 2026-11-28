@@ -1,0 +1,61 @@
+name: Release
+
+# With pending changesets: opens or updates the "Release: version" PR. Once that PR is merged
+# (no changesets left, version above 0.0.0), tags the version and builds, tests and publishes
+# it. Nothing is tagged or published until a human merges that PR.
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Version PR or tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/pnpm-install
+      - name: Version PR
+        id: changesets
+        uses: changesets/action@v2
+        with:
+          version: pnpm version:ci
+          commit: "chore(release): version"
+          title: "Release: version"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag the version
+        id: tag
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node scripts/tag-release.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: Build and publish
+    needs: release
+    if: needs.release.outputs.tag != ''
+    uses: ./.github/workflows/build-release.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+      dry-run: false
+    secrets: inherit
+    permissions:
+      contents: write

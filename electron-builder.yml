@@ -9,6 +9,7 @@ files:
   - "!test/*"
   - "!scripts/*"
   - "!docs/*"
+  - "!.changeset/*"
   - "!electron.vite.config.{js,ts,mjs,cjs}"
   - "!{dev-app-update.yml,CHANGELOG.md,README.md,biome.json,components.json,vitest.config.ts,playwright.config.ts}"
   - "!{.env,.env.*,.npmrc,pnpm-lock.yaml,pnpm-workspace.yaml}"

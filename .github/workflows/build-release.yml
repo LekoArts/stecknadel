@@ -1,0 +1,155 @@
+name: Build release
+
+# Native Windows and macOS builds, tested as installed, then (not in a dry run) published as the
+# GitHub Release for `tag`. Retry a failed publish: run this workflow with the tag and dry-run off.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      dry-run:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and test only, publish nothing
+        type: boolean
+        default: true
+      tag:
+        description: Version tag to build (v1.2.3); required to publish
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+      - name: Tag and version agree
+        if: inputs.tag != ''
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "${{ inputs.tag }}" ]; then
+            echo "::error::package.json is $version, the tag is ${{ inputs.tag }}"
+            exit 1
+          fi
+      - name: Publishing needs a tag
+        if: inputs.dry-run == false && inputs.tag == ''
+        run: |
+          echo "::error::Run with a tag to publish, or as a dry run"
+          exit 1
+      - uses: ./.github/actions/pnpm-install
+      - uses: ./.github/actions/fixtures
+      - name: Build
+        run: pnpm build
+      - name: Package
+        env:
+          # Unsigned builds: don't look for a signing identity in the keychain.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then pnpm package:win; else pnpm package:mac; fi
+      - name: Install
+        id: install
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            ./dist/Stecknadel-$version-setup.exe //S
+            # The silent NSIS installer returns before it finishes.
+            app="$(cygpath -u "$LOCALAPPDATA")/Programs/Stecknadel/Stecknadel.exe"
+            for _ in $(seq 60); do [ -f "$app" ] && break; sleep 2; done
+            test -f "$app" || { find "$(cygpath -u "$LOCALAPPDATA")/Programs" -maxdepth 2; exit 1; }
+            # Let the installer finish writing before the app starts.
+            sleep 5
+            app="$(cygpath -w "$app")"
+          else
+            mount=$(hdiutil attach -nobrowse -readonly "dist/Stecknadel-$version.dmg" | tail -1 | cut -f3-)
+            mkdir -p "$RUNNER_TEMP/installed"
+            cp -R "$mount/Stecknadel.app" "$RUNNER_TEMP/installed/"
+            hdiutil detach "$mount"
+            app="$RUNNER_TEMP/installed/Stecknadel.app/Contents/MacOS/Stecknadel"
+          fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+      - name: Portable smoke (bundled ExifTool)
+        if: runner.os == 'Windows'
+        run: |
+          version=$(node -p "require('./package.json').version")
+          cp test/fixtures/generated/smoke.jpg "$RUNNER_TEMP/steck-smoke.jpg"
+          STECKNADEL_SMOKE_FILE="$RUNNER_TEMP/steck-smoke.jpg" "./dist/Stecknadel-$version-portable.exe" > smoke.log 2>&1 || true
+          grep STECKNADEL_SMOKE smoke.log || { cat smoke.log; exit 1; }
+          grep -q "^STECKNADEL_SMOKE ok " smoke.log
+      - name: Installed app end to end
+        run: pnpm exec playwright test --project=installed
+        env:
+          STECKNADEL_APP_PATH: ${{ steps.install.outputs.app }}
+      - name: Upload installers
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+            dist/*.dmg
+            dist/*.dmg.blockmap
+            dist/latest*.yml
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-installed-${{ runner.os }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  publish:
+    name: Publish
+    needs: build
+    if: inputs.dry-run == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: artifacts
+          merge-multiple: true
+      - name: Release notes
+        run: |
+          version="${TAG#v}"
+          awk -v v="## $version" '$0 == v {on=1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
+          test -s notes.md || echo "Stecknadel $TAG" > notes.md
+        env:
+          TAG: ${{ inputs.tag }}
+      - name: Create or complete the release
+        run: |
+          if gh release view "$TAG" > /dev/null 2> err.txt; then
+            gh release upload "$TAG" artifacts/* --clobber
+          elif grep -q "release not found" err.txt; then
+            gh release create "$TAG" artifacts/* --title "$TAG" --notes-file notes.md --verify-tag
+          else
+            cat err.txt
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
