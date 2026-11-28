@@ -31,13 +31,13 @@ export function usePreview(
   const generation = useRef(0)
 
   useEffect(() => {
+    // Invalidates a run that is already in flight: its answer is for the old inputs.
+    const gen = ++generation.current
     if (!photos || !track || track.count === 0 || settingsKey === null) {
       setState({ snapshot: null, running: false, error: null })
       return
     }
     setState((s) => ({ ...s, running: true }))
-    // Invalidates a run that is already in flight: its answer is for the old inputs.
-    const gen = ++generation.current
     const timer = setTimeout(() => {
       window.stecknadel.runPreview({ generation: gen, cameras, manual }).then(
         (snapshot) => {

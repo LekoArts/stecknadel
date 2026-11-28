@@ -128,5 +128,12 @@ describe('usePreview', () => {
     rerender({ summary: null })
     expect(result.current.snapshot).toBeNull()
     expect(result.current.running).toBe(false)
+
+    // The run that was in flight for the old track answers late: it must not come back.
+    await act(async () => {
+      pending[0].resolve(snapshot(1))
+      await pending[0].promise
+    })
+    expect(result.current.snapshot).toBeNull()
   })
 })
