@@ -77,6 +77,16 @@ const devUrl = is.dev ? process.env.ELECTRON_RENDERER_URL : undefined
 
 let mainWindow: BrowserWindow | null = null
 
+// STECKNADEL_E2E_HIDDEN=1 runs a test out of the way of whoever is using the machine: an invisible,
+// click-through window that never takes focus, the Dock or the menu bar, and keeps rendering.
+// Playwright drives and captures it through the page, not the screen. Without it you watch the test.
+const background = process.env.STECKNADEL_E2E === '1' && process.env.STECKNADEL_E2E_HIDDEN === '1'
+if (background) {
+  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+  app.commandLine.appendSwitch('disable-renderer-backgrounding')
+  if (process.platform === 'darwin') app.setActivationPolicy('accessory')
+}
+
 function isAppUrl(url: string): boolean {
   if (devUrl) {
     try {
@@ -111,11 +121,17 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true,
+      backgroundThrottling: !background,
     },
   })
   mainWindow = win
 
-  win.on('ready-to-show', () => win.show())
+  if (background) {
+    win.setOpacity(0)
+    win.setIgnoreMouseEvents(true)
+    win.setHasShadow(false)
+  }
+  win.on('ready-to-show', () => (background ? win.showInactive() : win.show()))
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null
   })
@@ -173,7 +189,7 @@ async function smokeAndExit(file: string): Promise<void> {
 app.on('second-instance', () => {
   if (!mainWindow) return
   if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.focus()
+  if (!background) mainWindow.focus()
 })
 
 app.on('before-quit', () => {

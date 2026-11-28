@@ -3,6 +3,7 @@ Before pushing to `main` or opening a PR, run `pnpm lint`, `pnpm typecheck`, `pn
 
 e2e runs against the packaged app, not the dev build. Rebuild after source changes: `pnpm build && pnpm exec electron-builder --dir --mac --arm64 -c.mac.identity=null`.
 Focused spec: `pnpm exec playwright test --project=packaged-dir e2e/<name>.spec.ts`.
+When you (the agent) run e2e, prefix it with `STECKNADEL_E2E_HIDDEN=1`: the app window is then invisible and never takes focus, so the user can keep working. Without it the window shows, for when the user runs and watches a test.
 If Vitest fails a suite with "failed to find the runner" for a file that passes on CI, the local transform cache is stale: `rm -rf node_modules/.vite node_modules/.vitest-cache`.
 `pnpm test:native` runs the tests that call the real ExifTool binary. Fixtures: `pnpm fixtures` (pinned downloads), `pnpm make-fixtures` (generated JPEGs), `pnpm make-demo` (a made-up trip with a GPX and a photo folder covering the app's cases, for trying flows by hand; the cases are listed in `scripts/make-demo.mjs`).
 Real-data specs live in gitignored `e2e/local/` and `test/live/`. They need `STECKNADEL_LOCAL=1`, samples in `~/Downloads/stecknadel-samples`, and Dawarich credentials from `~/.config/stecknadel/dev.env` (`set -a; . ~/.config/stecknadel/dev.env; set +a`). Run them with `--project=local`.
