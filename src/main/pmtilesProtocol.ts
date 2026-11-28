@@ -1,8 +1,45 @@
-import { createReadStream } from 'node:fs'
-import { stat } from 'node:fs/promises'
+import { type FileHandle, open, stat } from 'node:fs/promises'
 import { extname } from 'node:path'
-import { Readable } from 'node:stream'
 import { PMTILES_URL } from '@shared/settings'
+
+const CHUNK = 64 * 1024
+
+/**
+ * Bytes `start..end` (inclusive) of `file`, read one chunk per pull: an unread response holds a
+ * chunk, not the archive. Hand-rolled because `Readable.toWeb` throws an unhandled error when
+ * the reader cancels while a read is in flight, as MapLibre does when it aborts a tile.
+ */
+function fileRange(file: string, start: number, end: number): ReadableStream<Uint8Array> {
+  let handle: Promise<FileHandle> | null = null
+  let pos = start
+  let done = false
+  const close = async (): Promise<void> => {
+    if (done) return
+    done = true
+    await (await handle)?.close()
+  }
+  return new ReadableStream<Uint8Array>(
+    {
+      async pull(controller) {
+        handle ??= open(file, 'r')
+        const size = Math.min(CHUNK, end + 1 - pos)
+        const buf = Buffer.alloc(Math.max(size, 0))
+        const { bytesRead } =
+          size > 0 ? await (await handle).read(buf, 0, size, pos) : { bytesRead: 0 }
+        if (done) return // cancelled while reading
+        if (bytesRead === 0) {
+          await close()
+          controller.close()
+          return
+        }
+        pos += bytesRead
+        controller.enqueue(new Uint8Array(buf.buffer, buf.byteOffset, bytesRead))
+      },
+      cancel: close,
+    },
+    { highWaterMark: 0 },
+  )
+}
 
 export const PMTILES_SCHEME = 'stecknadel-pmtiles'
 
@@ -71,10 +108,7 @@ export async function servePmtiles(request: Request, file: string | null): Promi
   const [start, end] = range
   const length = end - start + 1
   // Streamed, so a multi-gigabyte archive never sits in main's memory; HEAD reads nothing.
-  const body =
-    request.method === 'GET' && length > 0
-      ? (Readable.toWeb(createReadStream(file, { start, end })) as ReadableStream<Uint8Array>)
-      : null
+  const body = request.method === 'GET' && length > 0 ? fileRange(file, start, end) : null
   return new Response(body, {
     status: rangeHeader ? 206 : 200,
     headers: {
