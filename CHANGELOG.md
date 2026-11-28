@@ -1,5 +1,11 @@
 # stecknadel
 
+## 0.1.2
+
+### Patch Changes
+
+- On macOS, a Dawarich server on your local network can be reached again. macOS now asks to allow Stecknadel on the local network, and if access is off, the error says where to turn it on. ([`625e94f`](https://github.com/LekoArts/stecknadel/commit/625e94f7705dfb55e4134c9bd55ee630ab69d745))
+
 ## 0.1.1
 
 ### Patch Changes
