@@ -51,6 +51,16 @@ function possibleInstantCount(wall: Temporal.PlainDateTime, zone: string): numbe
   return earlier.epochNanoseconds === later.epochNanoseconds ? 1 : 2
 }
 
+/** Every UTC offset (seconds) the segment can give this wall time: two around a DST change. */
+function segmentOffsets(segment: Segment, wall: Temporal.PlainDateTime): number[] {
+  if (segment.tz.kind === 'offset') return [parseOffset(segment.tz.value) ?? 0]
+  const zone = segment.tz.id
+  return [
+    wall.toZonedDateTime(zone, { disambiguation: 'earlier' }).offsetNanoseconds / 1e9,
+    wall.toZonedDateTime(zone, { disambiguation: 'later' }).offsetNanoseconds / 1e9,
+  ]
+}
+
 const minusDrift = (instant: Temporal.Instant, driftSeconds: number): Temporal.Instant =>
   instant.subtract({ nanoseconds: Math.round(driftSeconds * 1e9) })
 
@@ -71,7 +81,8 @@ export function photoUtc(photo: PhotoTimeInput, settings: CameraTimeSettings): P
     (wall.toZonedDateTime('UTC').epochNanoseconds - resolved.instant.epochNanoseconds) /
       1_000_000_000n,
   )
-  if (recorded !== null && settings.confirmed && segmentOffset !== recorded)
+  // A recorded offset that picks one of a repeated hour's two readings agrees with the zone.
+  if (recorded !== null && settings.confirmed && !segmentOffsets(segment, wall).includes(recorded))
     warnings.push('offset-conflict')
 
   if (settings.useRecordedOffsets && recorded !== null) {

@@ -44,7 +44,7 @@ const offsetNs = (zone: string, epochNs: bigint): number =>
  * stops agreeing, a time change starts at that photo. A photo with a recorded offset (when used)
  * is a known point: only zones with that offset at its instant fit it, so the camera setting agrees
  * with what the photo says (as after Stecknadel wrote it). Photos the track can't place are skipped.
- * Null when no photo could be placed.
+ * Null when no photo could be placed, or when every photo has a recorded offset.
  */
 export function detectCameraSettings(
   photos: DetectInput[],
@@ -60,6 +60,8 @@ export function detectCameraSettings(
     if (!wall) continue
     shots.push({ wall, recorded: useRecordedOffsets ? parseOffset(p.offsetTimeOriginal) : null })
   }
+  // Photos that all say their offset don't need the camera setting; leave it at the default.
+  if (shots.every((s) => s.recorded !== null)) return null
   shots.sort((a, b) => Temporal.PlainDateTime.compare(a.wall, b.wall))
 
   // Per photo: the candidate zones whose reading of the wall time lands where that zone's offset
@@ -72,10 +74,11 @@ export function detectCameraSettings(
       const instant =
         wall.toZonedDateTime('UTC').epochNanoseconds - BigInt(recorded) * 1_000_000_000n
       const local = zoneAt(track, Number(instant / 1_000_000_000n))
+      if (!local) continue
       for (const zone of candidates) {
         if (offsetNs(zone, instant) === recorded * 1e9) zones.add(zone)
       }
-      if (local && zones.has(local)) here = local
+      if (zones.has(local)) here = local
       if (zones.size > 0) fits.push({ wall, zones, here })
       continue
     }

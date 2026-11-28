@@ -95,11 +95,20 @@ describe('detectCameraSettings', () => {
   })
 
   it('fits a photo with a recorded offset only to zones with that offset', () => {
-    expect(
-      detectCameraSettings([photo('2026:11:08 12:00:00', '-07:00')], trip, true)?.segments[0].tz,
-    ).toEqual({ kind: 'zone', id: 'America/Vancouver' })
-    // An offset no zone on the track had then: nothing to place.
-    expect(detectCameraSettings([photo('2026:11:08 12:00:00', '+05:30')], trip, true)).toBeNull()
+    const plain = photo('2026:11:05 10:00:00')
+    const segments = (photos: ReturnType<typeof photo>[]) =>
+      detectCameraSettings(photos, trip, true)?.segments.map((s) => [s.startsAt, s.tz])
+    // -07:00 on Nov 8 is Vancouver (Los Angeles is −08:00 by then): a change starts there.
+    expect(segments([plain, photo('2026:11:08 12:00:00', '-07:00')])).toEqual([
+      [undefined, { kind: 'zone', id: 'America/Los_Angeles' }],
+      ['2026-11-08T12:00:00', { kind: 'zone', id: 'America/Vancouver' }],
+    ])
+    // An offset no zone on the track had then, or a time past the track: no say.
+    const alone = [[undefined, { kind: 'zone', id: 'America/Los_Angeles' }]]
+    expect(segments([plain, photo('2026:11:08 12:00:00', '+05:30')])).toEqual(alone)
+    expect(segments([plain, photo('2026:12:20 12:00:00', '-07:00')])).toEqual(alone)
+    // When every photo says its offset, the camera setting isn't needed.
+    expect(detectCameraSettings([photo('2026:11:08 12:00:00', '-07:00')], trip, true)).toBeNull()
     expect(
       detectCameraSettings([photo('2026:11:08 12:00:00', '-07:00')], trip, false)?.segments[0].tz,
     ).toEqual({ kind: 'zone', id: 'America/Vancouver' })
@@ -107,6 +116,26 @@ describe('detectCameraSettings', () => {
     expect(
       detectCameraSettings([photo('2026:11:08 12:00:00')], { points: [], zones: [] }, true),
     ).toBeNull()
+  })
+
+  it('takes either reading of a repeated DST hour that a photo recorded, and no other', () => {
+    const la = trackOf([
+      ['2026-10-31T16:00:00Z', '2026-11-02T08:00:00Z', 37.77, -122.42, 'America/Los_Angeles'],
+    ])
+    const photos = [
+      photo('2026:10:31 12:00:00'),
+      photo('2026:11:01 01:30:00', '-07:00'),
+      photo('2026:11:01 01:30:00', '-08:00'),
+    ]
+    const settings = detectCameraSettings(photos, la, true) as CameraTimeSettings
+    expect(settings.segments).toEqual([
+      { tz: { kind: 'zone', id: 'America/Los_Angeles' }, driftSeconds: 0 },
+    ])
+    const timed = (p: ReturnType<typeof photo>) => photoUtc({ ...p, subSec: null }, settings)
+    expect(timed(photos[1]).utc?.toString()).toBe('2026-11-01T08:30:00Z')
+    expect(timed(photos[2]).utc?.toString()).toBe('2026-11-01T09:30:00Z')
+    for (const p of photos) expect(timed(p).warnings).toEqual([])
+    expect(timed(photo('2026:11:01 01:30:00', '-06:00')).warnings).toEqual(['offset-conflict'])
   })
 
   it('finds the same zone change after the first photo in the new zone got its offset written', () => {
