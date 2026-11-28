@@ -118,11 +118,11 @@ export function RecoveryMenu({ writes, onChanged }: RecoveryMenuProps): React.JS
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
-              size="icon-sm"
-              variant="ghost"
+              size="icon"
+              variant="outline"
               aria-label="Recent writes"
               title="Recent writes"
-              className="pointer-events-auto"
+              className="pointer-events-auto size-[38px] rounded-lg bg-background/95 shadow-sm"
             >
               <History />
             </Button>
