@@ -481,6 +481,35 @@ describe('safety', () => {
     expect((await readdir(h.dir)).sort()).toEqual(['r.CR3', 'r.xmp'])
   })
 
+  it('a created sidecar someone edits before the geotag is left to them', async () => {
+    const h = await make([{ src: FORMATS.CR3, name: 'r.CR3', wall: wallAt(30) }])
+    h.writing.rawTarget = 'sidecar'
+    h.hooks.beforeBatch = () => appendFileSync(h.path('r.xmp'), '\n')
+    const { report } = await h.previewAndWrite()
+    expect(row(report, h.idOf('r.CR3'))?.reason).toBe('changed since preview')
+    expect(report.writeId).toBeNull()
+    expect((await readdir(h.dir)).sort()).toEqual(['r.CR3', 'r.xmp'])
+  })
+
+  it('a created sidecar whose geotag fails can still be restored away', async () => {
+    if (process.platform === 'win32') return // folder permissions work differently there
+    const h = await make([{ src: FORMATS.CR3, name: 'r.CR3', wall: wallAt(30) }])
+    h.writing.rawTarget = 'sidecar'
+    h.hooks.beforeBatch = () => chmod(h.dir, 0o555) // ExifTool can't write its temp file
+    let report: WriteReport
+    try {
+      report = (await h.previewAndWrite()).report
+    } finally {
+      await chmod(h.dir, 0o755)
+    }
+    expect(row(report, h.idOf('r.CR3'))?.outcome).toBe('failed')
+    expect(await h.recovery.restoreValues(report.writeId as string, false)).toEqual({
+      done: 1,
+      skipped: [],
+    })
+    expect(await readdir(h.dir)).toEqual(['r.CR3'])
+  })
+
   it('a RAW edited while the journal is saved gets no sidecar', async () => {
     const h = await make([{ src: FORMATS.CR3, name: 'r.CR3', wall: wallAt(30) }])
     h.writing.rawTarget = 'sidecar'

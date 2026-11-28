@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { lstat, mkdir, open, readdir, readFile, rename, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, dirname, extname, join } from 'node:path'
 import { z } from 'zod'
 
 /** After this long a journal forgets the pre-write values; its backups stay discoverable. */
@@ -33,6 +33,11 @@ const targetSchema = z.strictObject({
    */
   created: identitySchema.nullable(),
   /**
+   * The created sidecar was put in place: from then on it is this write's even after the
+   * geotag changes it. Before that, only a file still matching `created` is.
+   */
+  owned: z.boolean(),
+  /**
    * The affected tags before the write (`{}` for a sidecar the write creates); null once
    * restored or expired.
    */
@@ -62,6 +67,10 @@ async function syncDir(dir: string): Promise<void> {
     await handle.close()
   }
 }
+
+/** Where a write makes a new sidecar before linking it into place (hidden from the scanner). */
+export const sidecarTemp = (path: string, journalId: string): string =>
+  join(dirname(path), `.${basename(path, extname(path))}.${journalId}.xmp`)
 
 export const newJournalId = (): string => randomUUID()
 

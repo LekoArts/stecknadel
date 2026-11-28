@@ -161,6 +161,41 @@ describe('restore previous values', () => {
   })
 })
 
+describe('a sidecar from an interrupted write', () => {
+  /** Interrupts a sidecar write right before the geotag; then forgets it put the sidecar in place. */
+  async function interrupted(h: Harness): Promise<string> {
+    h.writing.rawTarget = 'sidecar'
+    h.hooks.beforeBatch = () => {
+      throw new Error('killed')
+    }
+    await h.preview()
+    await expect(h.write()).rejects.toThrow('killed')
+    h.hooks.beforeBatch = undefined
+    const [view] = await h.recovery.list()
+    const journal = await h.journals.get(view.writeId)
+    if (!journal) throw new Error('no journal')
+    // As if the crash came between journaling the new sidecar and recording it in place.
+    for (const t of journal.targets) t.owned = false
+    await h.journals.save(journal)
+    return view.writeId
+  }
+
+  it('is deleted while it is exactly what the write created', async () => {
+    const h = await make([{ src: FORMATS.CR3, name: 'r.CR3', wall: wall(30) }])
+    const id = await interrupted(h)
+    expect(await h.recovery.restoreValues(id, true)).toEqual({ done: 1, skipped: [] })
+    expect(await readdir(h.dir)).toEqual(['r.CR3'])
+  })
+
+  it('is kept when another file took its path', async () => {
+    const h = await make([{ src: FORMATS.CR3, name: 'r.CR3', wall: wall(30) }])
+    const id = await interrupted(h)
+    await writeFile(h.path('r.xmp'), 'someone else')
+    await h.recovery.restoreValues(id, true)
+    expect((await readdir(h.dir)).sort()).toEqual(['r.CR3', 'r.xmp'])
+  })
+})
+
 describe('backups', () => {
   it('off by default: no _original files', async () => {
     const h = await make([{ src: FORMATS.JPEG, name: 'a.jpg', wall: wall(20) }])

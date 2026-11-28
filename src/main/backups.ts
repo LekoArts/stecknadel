@@ -8,6 +8,7 @@ import {
   type Journals,
   type JournalTarget,
   sameIdentity,
+  sidecarTemp,
 } from './journal'
 import { normPath, readAffected, restoreArgs, restored } from './tags'
 
@@ -78,8 +79,24 @@ async function conflict(
   return sameIdentity(now, target.after) ? null : 'changed since write'
 }
 
-/** Deletes a sidecar the write created, with the `.xmp_original` holding the geotag stub. */
-async function removeCreated(target: JournalTarget): Promise<void> {
+/**
+ * Whether the file at a sidecar target's path is the one this write created. A finished write
+ * kept only sidecars it put in place, and `conflict` matched them against `after`; an
+ * interrupted one owns a sidecar once it recorded linking it, or while it is still unchanged.
+ */
+async function ours(journal: Journal, target: JournalTarget): Promise<boolean> {
+  if (!target.created) return false
+  if (journal.state === 'done' || target.owned) return true
+  return sameIdentity(await identityOf(target.path), target.created)
+}
+
+/**
+ * Deletes a sidecar the write created (with the `.xmp_original` holding the geotag stub), if it
+ * is ours, and any temp an interrupted write left.
+ */
+async function removeCreated(journal: Journal, target: JournalTarget): Promise<void> {
+  await rm(sidecarTemp(target.path, journal.id), { force: true })
+  if (!(await ours(journal, target))) return
   await rm(target.path, { force: true })
   if (await regularFile(backupOf(target))) await rm(backupOf(target), { force: true })
 }
@@ -128,8 +145,7 @@ export class Recovery {
         continue
       }
       if (!target.existed) {
-        // Not created by this write (creation failed or never ran): nothing of ours to undo.
-        if (target.created) await removeCreated(target)
+        await removeCreated(journal, target)
         target.after = null
       } else {
         try {
@@ -165,9 +181,8 @@ export class Recovery {
         result.skipped.push({ name: target.name, reason })
         continue
       }
-      if (!target.existed) {
-        if (target.created) await removeCreated(target)
-      } else await rename(path, target.path)
+      if (!target.existed) await removeCreated(journal, target)
+      else await rename(path, target.path)
       target.values = null
       target.after = target.existed ? await identityOf(target.path) : null
       result.done += 1

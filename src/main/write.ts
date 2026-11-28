@@ -1,4 +1,5 @@
-import { link, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { copyFile, link, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, extname, join } from 'node:path'
 import { writesSidecar, xmpWallTime } from '@shared/effective'
@@ -18,6 +19,7 @@ import {
   type Journals,
   type JournalTarget,
   newJournalId,
+  sidecarTemp,
   type TagValues,
 } from './journal'
 import { type LoadedPhoto, type Stamp, stampOf } from './library/library'
@@ -66,6 +68,8 @@ interface Target {
   createdStamp: Stamp | null
   /** Handed to ExifTool (or created): only these stay in the journal. */
   touched: boolean
+  /** Changed by someone else after the journal was saved: no longer this write's to restore. */
+  turnedAway: boolean
   utc: Resolved | null
   warnings: string[]
   oto: string | null
@@ -100,10 +104,25 @@ async function changed(t: Target): Promise<string | null> {
   return sameStamp(t.createdStamp, nowSidecar) ? null : 'changed since preview'
 }
 
+/**
+ * Puts a new file at `path` only if nothing is there: a hard link where the volume has them,
+ * otherwise an exclusive copy (FAT and exFAT memory cards have no hard links).
+ */
+async function place(from: string, path: string): Promise<void> {
+  try {
+    await link(from, path)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'EEXIST') throw e
+    await copyFile(from, path, constants.COPYFILE_EXCL)
+  }
+}
+
 async function recheck(targets: Target[]): Promise<void> {
   await Promise.all(
     targets.map(async (t) => {
-      if (t.error === null) t.error = await changed(t)
+      if (t.error !== null) return
+      t.error = await changed(t)
+      if (t.error !== null) t.turnedAway = true
     }),
   )
 }
@@ -239,6 +258,7 @@ export class Writer {
           kind: t.kind,
           existed: t.existed,
           created: null,
+          owned: false,
           values: t.existed ? (values.get(normPath(t.path)) as TagValues) : {},
           after: null,
         }),
@@ -312,7 +332,7 @@ export class Writer {
 
     // A target turned away before anything touched it is not this write's to restore: its
     // journaled values would overwrite whatever edit turned it away.
-    const touched = new Set(live.filter((t) => t.touched).map((t) => t.path))
+    const touched = new Set(live.filter((t) => t.touched && !t.turnedAway).map((t) => t.path))
     journal.targets = journal.targets.filter((jt) => touched.has(jt.path))
     for (const jt of journal.targets) jt.after = await identityOf(jt.path)
     journal.state = 'done'
@@ -375,6 +395,7 @@ export class Writer {
       existed: !sidecar || file.sidecarPath !== null,
       createdStamp: null,
       touched: false,
+      turnedAway: false,
       utc,
       warnings,
       oto,
@@ -415,8 +436,7 @@ export class Writer {
     const { et, journals } = this.deps
     await recheck(pending)
     const fresh = pending.filter((t) => t.error === null)
-    const temp = (t: Target): string =>
-      join(dirname(t.path), `.${basename(t.path, '.xmp')}.${journal.id}.xmp`)
+    const temp = (t: Target): string => sidecarTemp(t.path, journal.id)
     const made = new Map<string, Identity>()
     try {
       const results = await allSettled(
@@ -435,6 +455,7 @@ export class Writer {
         }),
       )
       if (made.size === 0) return
+      // Intent first: a crash from here on leaves a sidecar a restore can recognise.
       for (const jt of journal.targets) jt.created = made.get(jt.path) ?? null
       try {
         await journals.save(journal)
@@ -442,18 +463,30 @@ export class Writer {
         for (const t of fresh) if (made.has(t.path)) t.error = (e as Error).message
         return
       }
+      const placed: Target[] = []
       for (const t of fresh) {
         if (!made.has(t.path)) continue
         try {
-          await link(temp(t), t.path)
+          await place(temp(t), t.path)
           t.touched = true
           t.createdStamp = await stampOf(t.path)
+          placed.push(t)
         } catch (e) {
           t.error =
             (e as NodeJS.ErrnoException).code === 'EEXIST'
               ? 'changed since preview'
               : (e as Error).message
         }
+      }
+      if (placed.length === 0) return
+      // Then ownership: once recorded, the geotag may change the sidecar and it stays ours.
+      const owned = new Set(placed.map((t) => t.path))
+      for (const jt of journal.targets) jt.owned = owned.has(jt.path)
+      try {
+        await journals.save(journal)
+      } catch (e) {
+        // Left exactly as created, so still recognisable: just don't geotag them.
+        for (const t of placed) t.error = (e as Error).message
       }
     } finally {
       await Promise.all(fresh.map((t) => rm(temp(t), { force: true })))
