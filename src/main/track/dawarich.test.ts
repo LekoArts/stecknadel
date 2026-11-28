@@ -124,6 +124,20 @@ describe('fetchDawarichTrack', () => {
     await expect(fetchDawarichTrack(url, KEY, range)).rejects.toThrow(/refused/)
   })
 
+  it('on macOS, points an unreachable host at the Local Network permission', async () => {
+    const unreachable = Object.assign(new TypeError('fetch failed'), {
+      cause: Object.assign(new Error('connect EHOSTUNREACH'), { code: 'EHOSTUNREACH' }),
+    })
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(unreachable)
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin')
+    try {
+      await expect(fetchDawarichTrack(base, KEY, range)).rejects.toThrow(/Local Network/)
+    } finally {
+      platform.mockRestore()
+      vi.restoreAllMocks()
+    }
+  })
+
   it('refuses a redirect, and the redirect target never receives the key', async () => {
     const target: (string | undefined)[] = []
     const other = createServer((req, res) => {

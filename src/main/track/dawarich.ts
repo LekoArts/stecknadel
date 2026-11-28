@@ -77,6 +77,10 @@ function networkMessage(error: unknown): string {
     return 'Couldn’t find the server — check the address and your internet connection'
   }
   if (code === 'ECONNREFUSED') return 'The server refused the connection — is Dawarich running?'
+  // macOS's Local Network privacy blocks an app's connections to local addresses this way.
+  if (process.platform === 'darwin' && (code === 'EHOSTUNREACH' || code === 'ENETUNREACH')) {
+    return 'Couldn’t reach the server. If it’s on your local network, allow Stecknadel in System Settings → Privacy & Security → Local Network'
+  }
   return 'Couldn’t reach the server — check the address and your internet connection'
 }
 
