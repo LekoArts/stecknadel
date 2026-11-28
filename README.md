@@ -46,10 +46,11 @@ Download the latest version from the [Releases page](https://github.com/LekoArts
 | Windows, no install   | `Stecknadel-<version>-portable.exe` | Runs from any folder. Tells you when a new version exists.           |
 | macOS (Apple silicon) | `Stecknadel-<version>.dmg`          | Drag the app into Applications. Tells you when a new version exists. |
 
-The builds are not signed, so your system warns you the first time you open them.
+The builds are not signed with an Apple or Microsoft certificate, so your system warns you the first time you open them.
 
 - **Windows:** SmartScreen says "Windows protected your PC". Click **More info**, then **Run anyway**.
-- **macOS:** Gatekeeper says the app cannot be opened. Right-click the app in Applications, choose **Open**, then click **Open** again. If macOS still refuses, run this once in Terminal:
+- **macOS:** macOS says it can't verify that Stecknadel is free of malware. Click **Done**. Open **System Settings → Privacy & Security**, scroll down, click **Open Anyway** next to Stecknadel, and confirm. You do this once.
+- **macOS, version 0.1.0 only:** macOS says the app "is damaged". It isn't. Run this once in Terminal, then open the app:
 
   ```sh
   xattr -dr com.apple.quarantine /Applications/Stecknadel.app
