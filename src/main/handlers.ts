@@ -201,9 +201,9 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       const ctx = previewContext()
       return ctx ? deps.preview.run(input, ctx) : null
     },
-    writePhotos: ({ generation, writing }) =>
+    writePhotos: ({ generation, writing, ids }) =>
       onDisk(async () => {
-        const result = await writer.write(generation, writing)
+        const result = await writer.write(generation, writing, ids)
         if (result.kind !== 'done') return result
         lastReport = result.report
         return { ...result, library: await library.reload() }

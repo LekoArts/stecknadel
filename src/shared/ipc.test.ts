@@ -8,6 +8,7 @@ const id = `p${'0123456789abcdef'.repeat(2).slice(0, 24)}`
 const settings = { matching: DEFAULT_MATCHING, writing: DEFAULT_WRITING }
 
 const WRITE_ID = '0b0c1d2e-3f40-4152-8637-48495a6b7c8d'
+const PHOTO = 'p0123456789abcdef01234567'
 const badWriteRefs = [
   undefined,
   {},
@@ -147,13 +148,16 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
     ],
   },
   writePhotos: {
-    valid: [{ generation: 3, writing: DEFAULT_WRITING }],
+    valid: [{ generation: 3, writing: DEFAULT_WRITING, ids: [PHOTO] }],
     invalid: [
       undefined,
-      { generation: 0, writing: DEFAULT_WRITING },
-      { generation: 3 },
-      { generation: 3, writing: { ...DEFAULT_WRITING, rawTarget: 'elsewhere' } },
-      { generation: 3, writing: DEFAULT_WRITING, paths: ['/etc/passwd'] },
+      { generation: 3, writing: DEFAULT_WRITING },
+      { generation: 3, writing: DEFAULT_WRITING, ids: [] },
+      { generation: 3, writing: DEFAULT_WRITING, ids: ['/etc/passwd'] },
+      { generation: 0, writing: DEFAULT_WRITING, ids: [PHOTO] },
+      { generation: 3, ids: [PHOTO] },
+      { generation: 3, writing: { ...DEFAULT_WRITING, rawTarget: 'elsewhere' }, ids: [PHOTO] },
+      { generation: 3, writing: DEFAULT_WRITING, ids: [PHOTO], paths: ['/etc/passwd'] },
     ],
   },
   exportReport: { valid: [undefined], invalid: [{}, '/tmp/report.csv'] },

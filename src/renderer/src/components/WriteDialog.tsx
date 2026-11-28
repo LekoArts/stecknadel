@@ -89,6 +89,7 @@ export function WriteDialog({
       const result = await window.stecknadel.writePhotos({
         generation: snapshot.generation,
         writing,
+        ids: snapshot.results.map((r) => r.id),
       })
       if (result.kind === 'stale') {
         setStage({ kind: 'confirm', stale: result.reason })

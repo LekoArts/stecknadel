@@ -324,6 +324,30 @@ describe('sidecar mode', () => {
 })
 
 describe('safety', () => {
+  it('writes only the chosen photos; the others stay byte-identical and out of the report', async () => {
+    const h = await make([
+      { src: FORMATS.JPEG, name: 'a.jpg', wall: wallAt(30) },
+      { src: FORMATS.JPEG, name: 'b.jpg', wall: wallAt(40) },
+    ])
+    const before = await sha256(h.path('b.jpg'))
+    await h.preview()
+    const result = await h.write(h.writing, [h.idOf('a.jpg')])
+    if (result.kind !== 'done') throw new Error(result.reason)
+    expect(result.report.rows.map((r) => r.id)).toEqual([h.idOf('a.jpg')])
+    expect(result.report.counts.written).toBe(1)
+    expect(await sha256(h.path('b.jpg'))).toBe(before)
+  })
+
+  it('a chosen photo the preview no longer has aborts with nothing modified', async () => {
+    const h = await make([{ src: FORMATS.JPEG, name: 'a.jpg', wall: wallAt(30) }])
+    const before = await sha256(h.path('a.jpg'))
+    await h.preview()
+    expect(await h.write(h.writing, [h.idOf('a.jpg'), 'p000000000000000000000000'])).toMatchObject({
+      kind: 'stale',
+    })
+    expect(await sha256(h.path('a.jpg'))).toBe(before)
+  })
+
   it('a file changed between confirm and write fails as changed since preview, untouched', async () => {
     const h = await make([
       { src: FORMATS.JPEG, name: 'a.jpg', wall: wallAt(30) },

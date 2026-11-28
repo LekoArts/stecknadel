@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { LibrarySnapshot } from './library'
+import { type LibrarySnapshot, PHOTO_ID_PATTERN } from './library'
 import type { MatchKind } from './match/status'
 import type { Position } from './preview'
 import { writingSchema } from './settings'
@@ -9,6 +9,8 @@ export const writeInputSchema = z.strictObject({
   generation: z.number().int().positive(),
   /** The writing options the confirmation showed. */
   writing: writingSchema,
+  /** The photos to write; the rest of the preview is left alone and out of the report. */
+  ids: z.array(z.string().regex(PHOTO_ID_PATTERN)).min(1).max(500_000),
 })
 
 export type WriteOutcome = 'written' | 'skipped' | 'unmatched' | 'failed'

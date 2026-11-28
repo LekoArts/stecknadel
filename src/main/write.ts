@@ -166,12 +166,17 @@ export class Writer {
 
   constructor(private readonly deps: WriteDeps) {}
 
-  async write(generation: number, confirmedWriting: WritingSettings): Promise<WriteResult> {
+  /** `ids`: the photos the user chose to write; the rest of the preview is left alone. */
+  async write(
+    generation: number,
+    confirmedWriting: WritingSettings,
+    ids: readonly string[],
+  ): Promise<WriteResult> {
     if (this.busy) throw new Error('A write is already running')
     this.busy = true
     try {
       return await this.deps.preview.exclusive((rerun) =>
-        this.run(generation, confirmedWriting, rerun),
+        this.run(generation, confirmedWriting, new Set(ids), rerun),
       )
     } finally {
       this.busy = false
@@ -181,6 +186,7 @@ export class Writer {
   private async run(
     generation: number,
     confirmedWriting: WritingSettings,
+    scope: ReadonlySet<string>,
     rerunPreview: (input: PreviewInput, ctx: PreviewContext) => Promise<PreviewSnapshot>,
   ): Promise<WriteResult> {
     const { et, preview, journals } = this.deps
@@ -204,11 +210,13 @@ export class Writer {
     if (!sameResults(rerun, confirmed)) return stale('The preview changed since you confirmed it.')
     const gpx = preview.gpx
     if (!gpx) return stale('The track is no longer loaded.')
+    const chosen = rerun.results.filter((r) => scope.has(r.id))
+    if (chosen.length !== scope.size) return stale('The photos changed since you chose them.')
 
     const byId = new Map(ctx.photos.map((p) => [p.id, p]))
     const rows = new Map<string, ReportRow>()
     const targets: Target[] = []
-    for (const result of rerun.results) {
+    for (const result of chosen) {
       const photo = byId.get(result.id) as PhotoSummary
       const name = nameOf(photo)
       const kind = result.status.kind
@@ -339,7 +347,7 @@ export class Writer {
     if (journal.targets.length > 0) await journals.save(journal)
     else await journals.delete(journal.id)
 
-    const ordered = rerun.results.map((r) => rows.get(r.id) as ReportRow)
+    const ordered = chosen.map((r) => rows.get(r.id) as ReportRow)
     const counts: Record<WriteOutcome, number> = { written: 0, skipped: 0, unmatched: 0, failed: 0 }
     for (const r of ordered) counts[r.outcome] += 1
     progress('verifying', live.length, live.length)

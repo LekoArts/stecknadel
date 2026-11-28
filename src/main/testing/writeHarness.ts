@@ -154,8 +154,12 @@ export class Harness {
     return snap
   }
 
-  write(writing: WritingSettings = this.writing): Promise<WriteResult> {
-    return this.writer.write(this.generation, writing)
+  /** Writes `ids`, or every photo in the library. */
+  write(
+    writing: WritingSettings = this.writing,
+    ids: readonly string[] = this.library.all().map((p) => p.summary.id),
+  ): Promise<WriteResult> {
+    return this.writer.write(this.generation, writing, ids)
   }
 
   async previewAndWrite() {

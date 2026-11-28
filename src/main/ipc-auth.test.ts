@@ -221,7 +221,9 @@ describe('IPC authorization', () => {
 describe('writing over IPC', () => {
   it('refuses an unconfirmed generation and unknown writes; has nothing to export yet', async () => {
     const writing = ((await invoke('getSettings')) as SettingsView).writing
-    await expect(invoke('writePhotos', { generation: 99, writing })).resolves.toMatchObject({
+    await expect(
+      invoke('writePhotos', { generation: 99, writing, ids: ['p000000000000000000000000'] }),
+    ).resolves.toMatchObject({
       kind: 'stale',
     })
     await expect(invoke('exportReport')).resolves.toBe(false)
