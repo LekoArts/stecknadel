@@ -298,12 +298,22 @@ export default function App(): React.JSX.Element {
   useEffect(refreshWrites, [])
 
   /** The files changed on disk (a write or a restore): show what they now say. */
-  const showWritten = (snapshot: LibrarySnapshot | null | undefined): void => {
+  /** After a write or restore: the files changed. A placement is done once written; one for a photo outside the write, or that failed, stays to write later. */
+  const showWritten = (
+    snapshot: LibrarySnapshot | null | undefined,
+    written: readonly string[] = [],
+  ): void => {
     refreshWrites()
     if (!snapshot) return
     clearThumbnailCache()
     setLibrary(snapshot)
-    setManual({})
+    if (written.length > 0) {
+      setManual((current) => {
+        const next = { ...current }
+        for (const id of written) delete next[id]
+        return next
+      })
+    }
   }
 
   const reloadAfterRestore = (): void => {
@@ -692,7 +702,14 @@ export default function App(): React.JSX.Element {
                       snapshot={preview.snapshot}
                       previewRunning={preview.running}
                       writing={settings.writing}
-                      onWritten={(result) => showWritten(result.library)}
+                      onWritten={(result) =>
+                        showWritten(
+                          result.library,
+                          result.report.rows
+                            .filter((r) => r.outcome === 'written')
+                            .map((r) => r.id),
+                        )
+                      }
                     />
                   )}
                   <PanelToggles panels={panels} />

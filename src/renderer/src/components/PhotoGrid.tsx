@@ -104,8 +104,10 @@ export function PhotoGrid({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: a background click-to-deselect; Escape is the keyboard path, the tiles are the controls */}
       <div
         ref={scrollRef}
+        // Clicking anywhere inside focuses the view, so Escape and Cmd/Ctrl+A reach it.
+        tabIndex={-1}
         data-testid="photo-grid"
-        className="h-full select-none overflow-y-auto px-3 py-2 [scrollbar-gutter:stable]"
+        className="h-full select-none outline-none overflow-y-auto px-3 py-2 [scrollbar-gutter:stable]"
         // Clicking between or beside the tiles, or Escape, clears the selection.
         onClick={(e) => {
           if (!(e.target as HTMLElement).closest('[data-testid="photo-tile"]'))

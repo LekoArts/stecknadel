@@ -243,6 +243,20 @@ test('write: the selection decides what Write writes', async () => {
     await report.getByRole('button', { name: 'Done' }).click()
     expect((await exiftool.read(stay, { readArgs: ['-n'] })).GPSLatitude).toBeDefined()
     expect(await readFile(moving)).toEqual(movingBytes)
+
+    // In the list, clicking a cell that isn't the name still gives the keys to the list.
+    await page
+      .getByRole('group', { name: 'Photo view' })
+      .getByRole('button', { name: 'List' })
+      .click()
+    const rowsPressed = () =>
+      page.getByTestId('photo-row').getByRole('button', { pressed: true }).count()
+    await page.getByTestId('photo-row').filter({ hasText: 'c-before' }).locator('td').nth(2).click()
+    expect(await rowsPressed()).toBe(1)
+    await page.keyboard.press(`${mod}+a`)
+    expect(await rowsPressed()).toBe(4)
+    await page.keyboard.press('Escape')
+    expect(await rowsPressed()).toBe(0)
   } finally {
     await close()
   }

@@ -144,8 +144,10 @@ export function PhotoList({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: a background click-to-deselect; Escape is the keyboard path, the rows are the controls */}
       <div
         ref={scrollRef}
+        // Clicking anywhere inside focuses the view, so Escape and Cmd/Ctrl+A reach it.
+        tabIndex={-1}
         data-testid="photo-list"
-        className="h-full select-none overflow-auto [scrollbar-gutter:stable]"
+        className="h-full select-none outline-none overflow-auto [scrollbar-gutter:stable]"
         onClick={(e) => {
           if (!(e.target as HTMLElement).closest('[data-testid="photo-row"], th'))
             onSelection(EMPTY_SELECTION)

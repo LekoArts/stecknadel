@@ -17,7 +17,7 @@ import type { PreviewSnapshot } from '@shared/preview'
 import type { WritingSettings } from '@shared/settings'
 import type { WriteOutcome, WriteProgress, WriteReport, WriteResult } from '@shared/write'
 import { LoaderCircle, MapPinCheck } from 'lucide-react'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 interface WriteDialogProps {
   open: boolean
@@ -81,9 +81,13 @@ export function WriteDialog({
 
   // Opening, from the button or a photo's menu, starts at the confirmation for the first scope.
   const [wasOpen, setWasOpen] = useState(open)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  // Focus goes back to what opened the dialog; a context-menu item is gone by then.
+  const opener = useRef<Element | null>(null)
   if (open !== wasOpen) {
     setWasOpen(open)
     if (open) {
+      opener.current = document.activeElement
       setStage({ kind: 'confirm', stale: null })
       setScopeKey(null)
     }
@@ -160,6 +164,7 @@ export function WriteDialog({
         }
       >
         <Button
+          ref={buttonRef}
           size="sm"
           // As tall as the panel toggle bar beside it (32 px buttons + padding + border).
           className="h-[38px] px-4 shadow-sm has-[>svg]:px-3.5"
@@ -179,6 +184,21 @@ export function WriteDialog({
         className={cn(stage.kind === 'report' && 'sm:max-w-2xl')}
         showCloseButton={!busy}
         onEscapeKeyDown={(e) => busy && e.preventDefault()}
+        onCloseAutoFocus={(e) => {
+          e.preventDefault()
+          const first = scope.ids[0]
+          const tile = first ? document.querySelector(`[data-photo-id="${first}"]`) : null
+          const candidates = [
+            opener.current,
+            buttonRef.current,
+            tile?.matches('button') ? tile : tile?.querySelector('button'),
+          ]
+          const target = candidates.find(
+            (el): el is HTMLElement =>
+              el instanceof HTMLElement && el.isConnected && !el.matches(':disabled'),
+          )
+          target?.focus()
+        }}
         onInteractOutside={(e) => busy && e.preventDefault()}
       >
         {stage.kind === 'confirm' && (
