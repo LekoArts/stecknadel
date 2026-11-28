@@ -1,4 +1,6 @@
-import { chmod, readdir, readFile, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { appendFileSync, readFileSync } from 'node:fs'
+import { chmod, mkdir, readdir, readFile, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DEG_TOLERANCE, ELE_TOLERANCE, expectedMatch, readGpxPoints } from '@oracle/expected'
 import type { Position } from '@shared/preview'
@@ -406,6 +408,72 @@ describe('safety', () => {
     await expect(h.write()).rejects.toThrow(/Nothing was written/)
     expect([await sha256(h.path('a.jpg')), await sha256(h.path('r.CR3'))]).toEqual(shas)
     expect((await readdir(h.dir)).sort()).toEqual(['a.jpg', 'r.CR3'])
+  })
+
+  it('a file edited while the write prepares is not overwritten', async () => {
+    const h = await make([
+      { src: FORMATS.JPEG, name: 'a.jpg', wall: wallAt(30) },
+      { src: FORMATS.JPEG, name: 'b.jpg', wall: wallAt(40) },
+    ])
+    let edited = ''
+    h.hooks.beforeBatch = () => {
+      // Synchronous: lands after the journal is saved and before the chunk's last check.
+      const b = h.path('b.jpg')
+      appendFileSync(b, Buffer.from([0]))
+      edited = createHash('sha256').update(readFileSync(b)).digest('hex')
+    }
+    const { report } = await h.previewAndWrite()
+    expect(row(report, h.idOf('b.jpg'))).toMatchObject({
+      outcome: 'failed',
+      reason: 'changed since preview',
+    })
+    expect(await sha256(h.path('b.jpg'))).toBe(edited)
+    expect(row(report, h.idOf('a.jpg'))?.outcome).toBe('written')
+  })
+
+  it('a preview for another track requested mid-write waits until the write is done', async () => {
+    const h = await make([{ src: FORMATS.JPEG, name: 'a.jpg', wall: wallAt(30) }])
+    let later: Promise<unknown> | null = null
+    h.hooks.beforeBatch = async () => {
+      // A new track would replace (and delete) the GPX the write is geotagging with.
+      h.track = { ...h.track, points: [...h.track.points] }
+      later = h.preview()
+      await new Promise((r) => setTimeout(r, 500))
+    }
+    const { report } = await h.previewAndWrite()
+    expect(row(report, h.idOf('a.jpg'))?.outcome).toBe('written')
+    await expect(later).resolves.toBeTruthy()
+  })
+
+  it('a symbolic link is not written through', async () => {
+    const h = await make([{ src: FORMATS.JPEG, name: 'real/a.jpg', wall: wallAt(30) }])
+    if (process.platform === 'win32') return // creating links needs privileges there
+    await symlink(h.path('real/a.jpg'), h.path('link.jpg'))
+    await h.load()
+    const before = await sha256(h.path('real/a.jpg'))
+    const { report } = await h.previewAndWrite()
+    expect(row(report, h.idOf('link.jpg'))).toMatchObject({
+      outcome: 'failed',
+      reason: expect.stringMatching(/links are not written through/),
+    })
+    // The real file is written once, as itself.
+    expect(row(report, h.idOf('real/a.jpg'))?.outcome).toBe('written')
+    expect(before).not.toBe(await sha256(h.path('real/a.jpg')))
+  })
+
+  it("a sidecar the write couldn't create is never deleted by a restore", async () => {
+    const h = await make([{ src: FORMATS.CR3, name: 'r.CR3', wall: wallAt(30) }])
+    h.writing.rawTarget = 'sidecar'
+    await h.preview()
+    // Something else appears at the sidecar path (not a regular file, so the stamp check
+    // can't tell): ExifTool refuses to create over it.
+    await mkdir(h.path('r.xmp'))
+    const result = await h.write()
+    if (result.kind !== 'done') throw new Error(result.reason)
+    expect(row(result.report, h.idOf('r.CR3'))?.outcome).toBe('failed')
+    const id = result.report.writeId as string
+    await h.recovery.restoreValues(id, false)
+    expect((await stat(h.path('r.xmp'))).isDirectory()).toBe(true)
   })
 
   it('killing ExifTool mid-batch leaves every file untouched or fully written, no temp files', async () => {

@@ -48,6 +48,13 @@ export function createHandlers(deps: HandlerDeps): Handlers {
   const zoneCache = new WeakMap<Track, Promise<(string | null)[]>>()
   const journals = new Journals(deps.journalDir)
   const recovery = new Recovery(deps.et, journals)
+  // Writes, restores and cleanups touch the same files and journals: one at a time.
+  let disk: Promise<unknown> = Promise.resolve()
+  const onDisk = <T>(fn: () => Promise<T>): Promise<T> => {
+    const result = disk.then(fn)
+    disk = result.catch(() => null)
+    return result
+  }
   let lastReport: WriteReport | null = null
 
   /** What the preview (and a write) sees now: photos as a write would, track and options. */
@@ -191,12 +198,13 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       const ctx = previewContext()
       return ctx ? deps.preview.run(input, ctx) : null
     },
-    writePhotos: async ({ generation, writing }) => {
-      const result = await writer.write(generation, writing)
-      if (result.kind !== 'done') return result
-      lastReport = result.report
-      return { ...result, library: await library.reload() }
-    },
+    writePhotos: ({ generation, writing }) =>
+      onDisk(async () => {
+        const result = await writer.write(generation, writing)
+        if (result.kind !== 'done') return result
+        lastReport = result.report
+        return { ...result, library: await library.reload() }
+      }),
     exportReport: async () => {
       if (!lastReport) return false
       const file = await deps.chooseReportFile()
@@ -208,13 +216,14 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     listWrites: () => recovery.list(),
     inspectWrite: ({ writeId }) => recovery.inspect(writeId),
     restoreValues: ({ writeId, confirmInterrupted }) =>
-      recovery.restoreValues(writeId, confirmInterrupted),
+      onDisk(() => recovery.restoreValues(writeId, confirmInterrupted)),
     restoreOriginals: ({ writeId, confirmInterrupted }) =>
-      recovery.restoreOriginals(writeId, confirmInterrupted),
-    cleanupBackups: ({ writeId }) => recovery.cleanupBackups(writeId),
-    dismissWrite: async ({ writeId }) => {
-      await recovery.dismiss(writeId)
-      return null
-    },
+      onDisk(() => recovery.restoreOriginals(writeId, confirmInterrupted)),
+    cleanupBackups: ({ writeId }) => onDisk(() => recovery.cleanupBackups(writeId)),
+    dismissWrite: ({ writeId }) =>
+      onDisk(async () => {
+        await recovery.dismiss(writeId)
+        return null
+      }),
   }
 }

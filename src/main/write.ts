@@ -17,6 +17,7 @@ import {
   type Journals,
   type JournalTarget,
   newJournalId,
+  type TagValues,
 } from './journal'
 import { type LoadedPhoto, type Stamp, stampOf } from './library/library'
 import { geotagArgs, geotimeCsv, type PreviewContext, type PreviewEngine } from './preview'
@@ -26,7 +27,7 @@ export interface WriteHooks {
   /** Test-only: alters the position a target is verified against. */
   expected?: (id: string, position: Position) => Position
   /** Test-only: runs right before the geotag batch starts. */
-  beforeBatch?: (files: string[]) => void
+  beforeBatch?: (files: string[]) => void | Promise<void>
 }
 
 export interface WriteDeps {
@@ -58,6 +59,8 @@ interface Target {
   kind: 'photo' | 'sidecar'
   path: string
   existed: boolean
+  /** The stamp a sidecar this write created had right after `-o`. */
+  createdStamp: Stamp | null
   utc: Resolved | null
   warnings: string[]
   oto: string | null
@@ -69,6 +72,36 @@ const nameOf = (p: PhotoSummary): string => (p.relDir ? `${p.relDir}/${p.name}` 
 
 const sameStamp = (a: Stamp | null, b: Stamp | null): boolean =>
   a === null || b === null ? a === b : a.size === b.size && a.mtimeMs === b.mtimeMs
+
+/**
+ * Why a target may not be touched now: it (or its RAW) changed since the folder was read, or it
+ * is not a regular file (a symbolic link is never written through). Run again right before
+ * every mutation, so an edit made while the write prepares is not overwritten.
+ */
+async function changed(t: Target): Promise<string | null> {
+  const { photo: before, sidecar } = t.loaded.stamps
+  const nowPhoto = await stampOf(t.loaded.file.path)
+  if (before === null || nowPhoto === null)
+    return 'not a regular file (links are not written through)'
+  if (!sameStamp(before, nowPhoto)) return 'changed since preview'
+  if (t.kind !== 'sidecar') return null
+  const nowSidecar = await stampOf(t.path)
+  if (t.existed) {
+    if (sidecar === null || nowSidecar === null)
+      return 'its sidecar is not a regular file (links are not written through)'
+    return sameStamp(sidecar, nowSidecar) ? null : 'changed since preview'
+  }
+  // Not there before: still absent until created, then exactly what `-o` left.
+  return sameStamp(t.createdStamp, nowSidecar) ? null : 'changed since preview'
+}
+
+async function recheck(targets: Target[]): Promise<void> {
+  await Promise.all(
+    targets.map(async (t) => {
+      if (t.error === null) t.error = await changed(t)
+    }),
+  )
+}
 
 function sameResults(a: PreviewSnapshot, b: PreviewSnapshot): boolean {
   if (a.results.length !== b.results.length) return false
@@ -113,13 +146,19 @@ export class Writer {
     if (this.busy) throw new Error('A write is already running')
     this.busy = true
     try {
-      return await this.run(generation, confirmedWriting)
+      return await this.deps.preview.exclusive((rerun) =>
+        this.run(generation, confirmedWriting, rerun),
+      )
     } finally {
       this.busy = false
     }
   }
 
-  private async run(generation: number, confirmedWriting: WritingSettings): Promise<WriteResult> {
+  private async run(
+    generation: number,
+    confirmedWriting: WritingSettings,
+    rerunPreview: (input: PreviewInput, ctx: PreviewContext) => Promise<PreviewSnapshot>,
+  ): Promise<WriteResult> {
     const { et, preview, journals } = this.deps
     const started = performance.now()
     const stale = (reason: string): WriteResult => ({ kind: 'stale', reason })
@@ -137,9 +176,8 @@ export class Writer {
     progress('checking', 0, 1)
     // The confirmed inputs against the current settings, track and files: any difference
     // means the user would get something other than what they saw.
-    const rerun = await preview.run(input, ctx)
-    if (!rerun || !sameResults(rerun, confirmed))
-      return stale('The preview changed since you confirmed it.')
+    const rerun = await rerunPreview(input, ctx)
+    if (!sameResults(rerun, confirmed)) return stale('The preview changed since you confirmed it.')
     const gpx = preview.gpx
     if (!gpx) return stale('The track is no longer loaded.')
 
@@ -167,22 +205,21 @@ export class Writer {
     }
 
     // Changed on disk since the folder was read: the preview no longer describes the file.
-    await Promise.all(
-      targets.map(async (t) => {
-        const { photo: before, sidecar } = t.loaded.stamps
-        const nowPhoto = await stampOf(t.loaded.file.path)
-        const nowSidecar = t.kind === 'sidecar' ? await stampOf(t.path) : null
-        const sidecarOk = t.kind !== 'sidecar' || sameStamp(t.existed ? sidecar : null, nowSidecar)
-        if (!sameStamp(before, nowPhoto) || !sidecarOk) t.error = 'changed since preview'
-      }),
-    )
-    const live = targets.filter((t) => t.error === null)
+    await recheck(targets)
 
-    // The journal comes first: if it can't be written, nothing is touched.
+    // The journal comes first: if it can't be written, nothing is touched. A target whose
+    // current values can't be read is not touched either: it could not be restored.
     const values = await readAffected(
       et,
-      live.filter((t) => t.existed).map((t) => t.path),
+      targets.filter((t) => t.error === null && t.existed).map((t) => t.path),
     )
+    for (const t of targets) {
+      if (t.error === null && t.existed && !values.has(normPath(t.path)))
+        t.error = 'could not read its current values'
+    }
+    // Read before the second check: values captured from a file edited meanwhile are discarded.
+    await recheck(targets)
+    const live = targets.filter((t) => t.error === null)
     const journal: Journal = {
       version: 1,
       id: newJournalId(),
@@ -196,7 +233,8 @@ export class Writer {
           path: t.path,
           kind: t.kind,
           existed: t.existed,
-          values: t.existed ? (values.get(normPath(t.path)) ?? {}) : {},
+          created: false,
+          values: t.existed ? (values.get(normPath(t.path)) as TagValues) : {},
           after: null,
         }),
       ),
@@ -211,13 +249,22 @@ export class Writer {
 
     try {
       await this.createSidecars(live)
+      const created = new Set(live.filter((t) => t.createdStamp !== null).map((t) => t.path))
+      if (created.size > 0) {
+        for (const jt of journal.targets) jt.created = created.has(jt.path)
+        await journals.save(journal)
+      }
       const total = live.length
       progress('writing', 0, total)
       const overwrite = writing.backups ? [] : ['-overwrite_original']
       const geotag = live.filter((t) => t.error === null && t.preview.status.kind !== 'manual')
       const manual = live.filter((t) => t.error === null && t.preview.status.kind === 'manual')
       await this.geotag(geotag, gpx, ctx, overwrite, (n) => progress('writing', n, total))
-      await this.placeManual(manual, overwrite)
+      await recheck(manual)
+      await this.placeManual(
+        manual.filter((t) => t.error === null),
+        overwrite,
+      )
       progress('writing', total, total)
     } finally {
       await removeTempFiles(live.map((t) => t.path))
@@ -231,7 +278,7 @@ export class Writer {
       const expected = this.deps.hooks?.expected?.(t.loaded.id, expectedRaw) ?? expectedRaw
       let outcome: WriteOutcome = 'written'
       let reason: string | null = null
-      if (t.error && !samePosition(written, expected)) {
+      if (t.error) {
         outcome = 'failed'
         reason = t.error
       } else if (!samePosition(written, expected)) {
@@ -321,6 +368,7 @@ export class Writer {
       kind: sidecar ? 'sidecar' : 'photo',
       path,
       existed: !sidecar || file.sidecarPath !== null,
+      createdStamp: null,
       utc,
       warnings,
       oto,
@@ -366,6 +414,11 @@ export class Writer {
           : r.value.messages.find((m) => /^error/i.test(m))
       if (message) t.error = message.replace(/^error:\s*/i, '')
     })
+    await Promise.all(
+      fresh.map(async (t) => {
+        if (t.error === null) t.createdStamp = await stampOf(t.path)
+      }),
+    )
     const created = fresh.filter((t) => t.error === null && t.xmpDto !== null)
     if (created.length === 0) return
     const dates = await readAffected(
@@ -413,18 +466,22 @@ export class Writer {
         '-GPSAltitudeRef=',
         ...geotagArgs(csv, gpx, ctx.options.limits),
       ]
-      this.deps.hooks?.beforeBatch?.(targets.map((t) => t.path))
+      await this.deps.hooks?.beforeBatch?.(targets.map((t) => t.path))
       let done = 0
       const chunks = chunked(targets, et.options.maxProcs)
       await allSettled(
         chunks.map(async (chunk) => {
-          const paths = chunk.map((t) => t.path)
+          await recheck(chunk)
+          const ready = chunk.filter((t) => t.error === null)
+          const paths = ready.map((t) => t.path)
           try {
-            const { messages } = await runBatch(et, [...args, ...paths])
-            const errors = errorsByFile(messages, paths)
-            for (const t of chunk) t.error = errors.get(t.path) ?? null
+            if (paths.length > 0) {
+              const { messages } = await runBatch(et, [...args, ...paths])
+              const errors = errorsByFile(messages, paths)
+              for (const t of ready) t.error = errors.get(t.path) ?? null
+            }
           } catch (e) {
-            for (const t of chunk) t.error = (e as Error).message
+            for (const t of ready) t.error = (e as Error).message
           }
           done += chunk.length
           onDone(done)

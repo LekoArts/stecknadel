@@ -24,8 +24,13 @@ const targetSchema = z.strictObject({
   name: z.string(),
   path: z.string(),
   kind: z.enum(['photo', 'sidecar']),
-  /** False for a sidecar the write creates: restoring deletes it. */
+  /** False for a sidecar that didn't exist before the write. */
   existed: z.boolean(),
+  /**
+   * The write created this sidecar (saved right after `-o` succeeded). Only then may a restore
+   * delete it: a file someone else put at that path in the meantime is not ours.
+   */
+  created: z.boolean(),
   /**
    * The affected tags before the write (`{}` for a sidecar the write creates); null once
    * restored or expired.
@@ -45,6 +50,17 @@ const journalSchema = z.strictObject({
   targets: z.array(targetSchema),
 })
 export type Journal = z.infer<typeof journalSchema>
+
+/** Makes the rename itself durable. Windows can't open a directory; there the rename is enough. */
+async function syncDir(dir: string): Promise<void> {
+  if (process.platform === 'win32') return
+  const handle = await open(dir, 'r')
+  try {
+    await handle.sync()
+  } finally {
+    await handle.close()
+  }
+}
 
 export const newJournalId = (): string => randomUUID()
 
@@ -89,6 +105,7 @@ export class Journals {
       await handle.close()
     }
     await rename(tmp, this.file(journal.id))
+    await syncDir(this.dir)
   }
 
   async get(id: string): Promise<Journal | null> {

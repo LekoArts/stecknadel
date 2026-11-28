@@ -228,8 +228,24 @@ export class PreviewEngine {
     // One run at a time: runs share the prepared GPX and the cache.
     const result = this.queue.then(async () => {
       if (sequence !== this.sequence) return null
-      return this.runNow(input, ctx, sequence)
+      return this.runNow(input, ctx, () => sequence === this.sequence)
     })
+    this.queue = result.catch(() => null)
+    return result
+  }
+
+  /**
+   * Runs `fn` with no preview in between, handing it an uninterruptible re-run: a write keeps
+   * the GPX and the snapshot it checked until it is done. Previews requested meanwhile wait.
+   */
+  exclusive<T>(
+    fn: (
+      rerun: (input: PreviewInput, ctx: PreviewContext) => Promise<PreviewSnapshot>,
+    ) => Promise<T>,
+  ): Promise<T> {
+    const result = this.queue.then(() =>
+      fn(async (input, ctx) => (await this.runNow(input, ctx, () => true)) as PreviewSnapshot),
+    )
     this.queue = result.catch(() => null)
     return result
   }
@@ -237,14 +253,14 @@ export class PreviewEngine {
   private async runNow(
     input: PreviewInput,
     ctx: PreviewContext,
-    sequence: number,
+    current: () => boolean,
   ): Promise<PreviewSnapshot | null> {
     const started = performance.now()
     const { limits, bridge, overwriteGps, rawTarget } = ctx.options
     const skipped = (photo: PhotoSummary): boolean =>
       (photo.gps !== null && !overwriteGps) || (photo.sidecarCollision && rawTarget === 'sidecar')
     const prepared = await this.prepare(ctx.track, limits, bridge)
-    if (sequence !== this.sequence) return null
+    if (!current()) return null
 
     const utcs = new Map<string, number | null>()
     const geotimes = new Map<string, string>()
@@ -279,7 +295,7 @@ export class PreviewEngine {
     }
     const recomputed = [...keys].filter(([c, k]) => this.cache.get(c)?.key !== k).map(([c]) => c)
     const positions = await geotagStubs(this.et, rows, prepared.gpx, limits)
-    if (sequence !== this.sequence) return null
+    if (!current()) return null
 
     for (const camera of recomputed) {
       const map = new Map<string, RawPosition | null>()

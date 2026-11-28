@@ -9,7 +9,7 @@ import {
   type JournalTarget,
   sameIdentity,
 } from './journal'
-import { normPath, readAffected, restoreArgs } from './tags'
+import { normPath, readAffected, restoreArgs, restored } from './tags'
 
 /** ExifTool's backup of a target: `<target>_original`, only ever for journaled targets. */
 export const backupOf = (target: JournalTarget): string => `${target.path}_original`
@@ -128,13 +128,21 @@ export class Recovery {
         continue
       }
       if (!target.existed) {
-        await removeCreated(target)
+        // Not created by this write (creation failed or never ran): nothing of ours to undo.
+        if (target.created) await removeCreated(target)
         target.after = null
       } else {
         try {
           await runRaw(this.et, [...restoreArgs(target.values), target.path])
         } catch (e) {
           result.skipped.push({ name: target.name, reason: (e as Error).message })
+          continue
+        }
+        // The journaled values are only forgotten once the file is seen holding them again.
+        const now = (await readAffected(this.et, [target.path])).get(normPath(target.path))
+        if (!restored(target.values, now)) {
+          result.skipped.push({ name: target.name, reason: 'the values did not read back' })
+          target.after = await identityOf(target.path)
           continue
         }
         // Re-recorded so a later "Restore originals" still passes the conflict check.
@@ -157,8 +165,9 @@ export class Recovery {
         result.skipped.push({ name: target.name, reason })
         continue
       }
-      if (!target.existed) await removeCreated(target)
-      else await rename(path, target.path)
+      if (!target.existed) {
+        if (target.created) await removeCreated(target)
+      } else await rename(path, target.path)
       target.values = null
       target.after = target.existed ? await identityOf(target.path) : null
       result.done += 1

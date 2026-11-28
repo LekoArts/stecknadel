@@ -30,11 +30,15 @@ async function readJson(
   return out
 }
 
-/** The affected tags of each file, group-qualified (`-G1 -a`); files ExifTool can't read are missing. */
+/**
+ * The affected tags of each file, group-qualified (`-G1 -a`). A file ExifTool couldn't read is
+ * missing from the map: "no values" and "couldn't read the values" must not look alike.
+ */
 export async function readAffected(et: ExifTool, files: string[]): Promise<Map<string, TagValues>> {
   const raw = await readJson(et, ['-G1', '-a', ...AFFECTED_TAGS], files)
   const out = new Map<string, TagValues>()
   for (const [file, tags] of raw) {
+    if ('Error' in tags || 'ExifTool:Error' in tags) continue
     const values: TagValues = {}
     for (const [k, v] of Object.entries(tags)) {
       if (typeof v === 'string' || typeof v === 'number') values[k] = v
@@ -55,6 +59,16 @@ export function restoreArgs(values: TagValues): string[] {
     ...AFFECTED_TAGS.map((t) => `${t}=`),
     ...Object.entries(values).map(([k, v]) => (v === '' ? `-${k}^=` : `-${k}=${v}`)),
   ]
+}
+
+/**
+ * Whether `now` holds the journaled `values` again: every recorded tag as recorded, and no
+ * coordinates where none were recorded (ExifTool may add bookkeeping such as GPSVersionID).
+ */
+export function restored(values: TagValues, now: TagValues | undefined): boolean {
+  if (!now) return false
+  for (const [k, v] of Object.entries(values)) if (String(now[k]) !== String(v)) return false
+  return Object.keys(now).every((k) => k in values || !/:GPS(Latitude|Longitude|Altitude)$/.test(k))
 }
 
 const num = (v: unknown): number | null => (typeof v === 'number' ? v : null)
