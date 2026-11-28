@@ -485,32 +485,57 @@ describe('safety', () => {
     const h = await make(files)
     const before = new Map<string, string>()
     for (const f of files) before.set(f.name, await sha256(h.path(f.name)))
+    // The fixture's own warnings; a write must not add any.
+    const baseline = await validateWarnings(h.path(files[0].name))
+    let killed = 0
     h.hooks.beforeBatch = () => {
       setTimeout(() => {
-        for (const pid of et.pids) process.kill(pid, 'SIGKILL')
+        for (const pid of et.pids) {
+          process.kill(pid, 'SIGKILL')
+          killed += 1
+        }
       }, 150)
     }
     const { snap, report } = await h.previewAndWrite()
     h.hooks.beforeBatch = undefined
+    expect(killed).toBeGreaterThan(0)
     let written = 0
     let same = 0
     for (const f of files) {
       const p = h.path(f.name)
+      const id = h.idOf(f.name)
+      const r = row(report, id)
       if ((await sha256(p)) === before.get(f.name)) {
         same += 1
+        expect(r?.outcome).toBe('failed')
         continue
       }
       written += 1
-      const { stdout } = await runRaw(et, ['-validate', '-warning', '-a', '-s3', p])
-      expect(stdout.trim()).toMatch(/^OK$|^\d+ Warnings?/i)
-      const id = h.idOf(f.name)
+      expect(await validateWarnings(p)).toEqual(baseline)
       const got = (await readPositions(et, [{ path: p, kind: 'photo' }])).get(normPath(p))
-      const want = snap.results.find((r) => r.id === id)?.position as Position
-      expect(Math.abs((got as Position).lat - want.lat)).toBeLessThanOrEqual(1e-6)
+      const want = snap.results.find((x) => x.id === id)?.position as Position
+      expectNear(got, {
+        lat: want.lat,
+        lon: want.lon,
+        ...(want.ele === null ? {} : { ele: want.ele }),
+      })
+      // A file the batch finished is either reported written or (killed before its read-back
+      // was confirmed) failed, never half-written.
+      expect(['written', 'failed']).toContain(r?.outcome)
     }
     expect(same).toBeGreaterThan(0) // the kill landed before the batch finished
+    expect(written).toBeGreaterThan(0) // and after it started
     expect(written + same).toBe(500)
     expect(report.counts.written + report.counts.failed).toBe(500)
-    expect((await readdir(h.dir)).filter((n) => n.includes('_exiftool_tmp'))).toEqual([])
+    const leftovers = async () =>
+      (await readdir(h.dir)).filter((n) => n.includes('_exiftool_tmp') || n.endsWith('_original'))
+    expect(await leftovers()).toEqual([])
+
+    // The next write over the same folder (fresh read) finishes the rest cleanly.
+    await h.load()
+    const again = await h.previewAndWrite()
+    expect(again.report.counts.failed).toBe(0)
+    expect(again.report.counts.written).toBe(same)
+    expect(await leftovers()).toEqual([])
   }, 120_000)
 })
