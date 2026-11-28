@@ -127,12 +127,17 @@ export function samePosition(a: Position | null, b: Position | null): boolean {
 /** Per-file `Error:` lines of a batch, by the target path they end with. */
 export function errorsByFile(messages: string[], paths: string[]): Map<string, string> {
   const out = new Map<string, string>()
+  // Longest first, so `a.jpg` never claims a line about `a.jpg.xmp`.
+  const byLength = [...paths].sort((a, b) => b.length - a.length)
   for (const line of messages) {
     if (!/^error/i.test(line)) continue
     const n = normPath(line)
-    const path = paths.find((p) => n.endsWith(` - ${normPath(p)}`))
-    if (path && !out.has(path))
-      out.set(path, line.replace(/^error:\s*/i, '').slice(0, -(path.length + 3)))
+    // Most errors end in ` - <file>`; some (renaming the temp file on Windows) name it inline.
+    const path = byLength.find((p) => n.includes(normPath(p)))
+    if (!path || out.has(path)) continue
+    const suffix = ` - ${normPath(path)}`
+    const text = n.endsWith(suffix) ? line.slice(0, -suffix.length) : line
+    out.set(path, text.replace(/^error:\s*/i, ''))
   }
   return out
 }
