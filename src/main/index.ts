@@ -300,7 +300,7 @@ app.whenReady().then(async () => {
     isAppUrl,
   )
 
-  installMenu(sendPanel)
+  installMenu(sendPanel, () => send('openSettings', null))
   createWindow()
 
   app.on('activate', () => {

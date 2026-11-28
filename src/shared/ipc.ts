@@ -218,6 +218,8 @@ export interface IpcEvents {
   libraryProgress: LibraryProgress
   trackProgress: { page: number; totalPages: number }
   panel: PanelCommand
+  /** The app menu's Settings item. */
+  openSettings: null
   writeProgress: WriteProgress
   update: UpdateState
 }
@@ -226,6 +228,7 @@ export const ipcEventNames: IpcEventName[] = [
   'libraryProgress',
   'trackProgress',
   'panel',
+  'openSettings',
   'writeProgress',
   'update',
 ]

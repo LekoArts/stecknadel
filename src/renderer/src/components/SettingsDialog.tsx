@@ -12,6 +12,7 @@ import {
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
+import { isMac } from '@renderer/lib/panels'
 import {
   type MatchingSettings,
   type SaveSettingsInput,
@@ -20,7 +21,7 @@ import {
   type WritingSettings,
 } from '@shared/settings'
 import { LoaderCircle, Settings as SettingsIcon } from 'lucide-react'
-import { type ReactNode, useId, useState } from 'react'
+import { type ReactNode, useEffect, useEffectEvent, useId, useState } from 'react'
 
 interface SettingsDialogProps {
   settings: SettingsView
@@ -101,6 +102,11 @@ export function SettingsDialog({
     }
     setOpen(next)
   }
+  // The app menu's Settings item (the only way in on macOS), unless another dialog is up.
+  const openFromMenu = useEffectEvent(() => {
+    if (!open && !document.querySelector('[role="dialog"]')) onOpenChange(true)
+  })
+  useEffect(() => window.stecknadel.on('openSettings', () => openFromMenu()), [])
   const set = (patch: Partial<Draft>): void => setDraft((d) => ({ ...d, ...patch }))
   const setWriting = (patch: Partial<WritingSettings>): void =>
     setDraft((d) => ({ ...d, writing: { ...d.writing, ...patch } }))
@@ -137,11 +143,14 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button size="icon-sm" variant="ghost" aria-label="Settings" title="Settings">
-          <SettingsIcon />
-        </Button>
-      </DialogTrigger>
+      {/* macOS keeps settings in the app menu; Windows hides its menu bar, so it keeps a button. */}
+      {!isMac && (
+        <DialogTrigger asChild>
+          <Button size="icon-sm" variant="ghost" aria-label="Settings" title="Settings (Ctrl+,)">
+            <SettingsIcon />
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <form
           onSubmit={(e) => {

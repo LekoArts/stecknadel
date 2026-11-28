@@ -21,11 +21,42 @@ export function panelShortcut(input: Electron.Input): PanelCommand | null {
  * preventing that input also keeps the menu from acting on it, so the menu only shows the keys.
  * The default menu's Cmd/Ctrl+0 (reset zoom) moves to Shift+0.
  */
-export function installMenu(onPanel: (command: PanelCommand) => void): void {
+export function installMenu(
+  onPanel: (command: PanelCommand) => void,
+  onSettings: () => void,
+): void {
   const isMac = process.platform === 'darwin'
+  const settings: MenuItemConstructorOptions = {
+    id: 'settings',
+    // macOS convention: an item that opens a window ends in an ellipsis.
+    label: isMac ? 'Settings…' : 'Settings',
+    accelerator: 'CmdOrCtrl+,',
+    click: onSettings,
+  }
   const template: MenuItemConstructorOptions[] = [
-    ...(isMac ? [{ role: 'appMenu' } as const] : []),
-    { role: 'fileMenu' },
+    ...(isMac
+      ? [
+          {
+            role: 'appMenu',
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              settings,
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          } satisfies MenuItemConstructorOptions,
+        ]
+      : []),
+    isMac
+      ? { role: 'fileMenu' }
+      : { role: 'fileMenu', submenu: [settings, { type: 'separator' }, { role: 'quit' }] },
     { role: 'editMenu' },
     {
       label: 'View',

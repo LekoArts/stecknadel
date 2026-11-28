@@ -1,9 +1,9 @@
 import { copyFile, mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, type Page, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { ExifTool } from 'exiftool-vendored'
-import { launchWithProfile, openFolder } from './helpers/library'
+import { launchWithProfile, openFolder, openSettings } from './helpers/library'
 
 // Own instance: the module singleton cannot be reused once another spec in this worker ends it.
 const exiftool = new ExifTool()
@@ -33,13 +33,6 @@ async function chooseFile(app: Parameters<typeof openFolder>[0], file: string): 
   }, file)
 }
 
-const openSettings = async (page: Page) => {
-  await page.getByRole('button', { name: 'Settings' }).click()
-  const dialog = page.getByRole('dialog', { name: 'Settings' })
-  await expect(dialog).toBeVisible()
-  return dialog
-}
-
 test('a local PMTiles file renders the map with the network blocked', async () => {
   const { app, page, userData, close } = await launchWithProfile()
   try {
@@ -62,7 +55,7 @@ test('a local PMTiles file renders the map with the network blocked', async () =
       w.__stecknadelMap.on('error', (e) => w.__mapErrors.push(e.error?.message ?? 'error'))
     })
 
-    const dialog = await openSettings(page)
+    const dialog = await openSettings(app, page)
     await dialog.getByRole('radio', { name: 'Offline map file (.pmtiles)' }).check()
     await expect(dialog.getByTestId('pmtiles-name')).toHaveText('No file chosen')
     await expect(dialog.getByRole('button', { name: 'Save' })).toBeDisabled()
@@ -143,7 +136,7 @@ test('changing GeoMaxIntSecs changes a photo’s status in the preview', async (
     // Default 30 min: the 3 h gap is beyond interpolation, so the bridge places it.
     await expect.poll(status).toBe('matched-stay')
 
-    let dialog = await openSettings(page)
+    let dialog = await openSettings(app, page)
     const field = dialog.getByLabel('Interpolate between points up to')
     await expect(field).toHaveValue('30')
     await field.fill('0.5')
@@ -155,7 +148,7 @@ test('changing GeoMaxIntSecs changes a photo’s status in the preview', async (
     // 4 h: ExifTool now interpolates across the gap itself.
     await expect.poll(status).toBe('matched')
 
-    dialog = await openSettings(page)
+    dialog = await openSettings(app, page)
     await expect(dialog.getByLabel('Interpolate between points up to')).toHaveValue('240')
     await dialog.getByLabel('Interpolate between points up to').fill('30')
     await dialog.getByRole('checkbox', { name: /Bridge gaps/ }).uncheck()

@@ -1,7 +1,7 @@
 import { cp, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import type { ElectronApplication, Locator, Page } from '@playwright/test'
+import { type ElectronApplication, expect, type Locator, type Page } from '@playwright/test'
 import { launchApp } from './app'
 
 const fixtures = join(__dirname, '../../test/fixtures')
@@ -71,4 +71,21 @@ export async function pickZone(scope: Locator, label: string, zone: string): Pro
       .first()
       .click()
   }
+}
+
+/** Opens Settings the way the platform offers it: the app menu on macOS, the toolbar gear on Windows. */
+export async function openSettings(app: ElectronApplication, page: Page): Promise<Locator> {
+  if (process.platform === 'darwin') {
+    await expect(page.getByRole('button', { name: 'Settings' })).toHaveCount(0)
+    await app.evaluate(({ Menu }) => {
+      const item = Menu.getApplicationMenu()?.getMenuItemById('settings')
+      if (!item) throw new Error('no Settings menu item')
+      item.click()
+    })
+  } else {
+    await page.getByRole('button', { name: 'Settings' }).click()
+  }
+  const dialog = page.getByRole('dialog', { name: 'Settings' })
+  await expect(dialog).toBeVisible()
+  return dialog
 }
