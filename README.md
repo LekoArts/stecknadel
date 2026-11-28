@@ -151,7 +151,7 @@ What Stecknadel writes:
 - The latitude, longitude and, when the track has it, the altitude.
 - For JPEG and HEIC files, into the file itself.
 - For RAW files, into the RAW file or into an `.xmp` sidecar file next to it. You choose this in Settings.
-- Optionally, the photo's time zone offset (`OffsetTimeOriginal`), so other apps show the right local time.
+- The photo's time zone offset (`OffsetTimeOriginal`), so other apps show the right local time. Stecknadel never replaces an offset the photo already has. You can turn this off in Settings.
 
 Before it writes, Stecknadel checks that each file has not changed since you loaded it. After it writes, it reads every file back and compares the position with the map. A photo that does not match is reported as failed.
 
@@ -212,18 +212,18 @@ The same actions are in the **View** menu and in the buttons at the top right of
 
 Click the gear button at the top of the left sidebar.
 
-| Setting                                                       | Key in `settings.json` | What it does                                                                                                  | Default     |
-| ------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------- | ----------- |
-| Interpolate between points up to                              | `geoMaxIntSecs`        | The longest time between two track points that a photo may be placed between.                                 | 30 minutes  |
-| Use the nearest point up to                                   | `geoMaxExtSecs`        | The longest time between a photo and the nearest track point, when the photo is not between two close points. | 30 minutes  |
-| Bridge gaps where the track starts and ends at the same place | `bridge.enabled`       | Whether long stops are filled in, see [The track](#the-track).                                                | On          |
-| Same place: within                                            | `bridge.radiusMeters`  | How close the points before and after a stop must be.                                                         | 250 m       |
-| Gaps up to                                                    | `bridge.maxGapHours`   | The longest stop that is filled in.                                                                           | 24 hours    |
-| Replace GPS positions photos already have                     | `overwriteGps`         | Write photos that already have a position.                                                                    | Off         |
-| Write the time zone offset (OffsetTimeOriginal)               | `writeOffsetTime`      | Also save the time zone offset into each written photo.                                                       | Off         |
-| Keep a copy of each original file                             | `backups`              | Keep `<file>_original` next to each edited file, so you can restore it.                                       | Off         |
-| For RAW files, write into                                     | `rawTarget`            | The RAW file itself (`in-file`), or an `.xmp` sidecar next to it (`sidecar`).                                 | RAW file    |
-| Map                                                           | `mapSource`            | OpenFreeMap (needs internet), your own map style address, or a local PMTiles file that works offline.         | OpenFreeMap |
+| Setting                                                       | Key in `settings.json`         | What it does                                                                                                  | Default     |
+| ------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------- |
+| Interpolate between points up to                              | `matching.geoMaxIntSecs`       | The longest time between two track points that a photo may be placed between.                                 | 30 minutes  |
+| Use the nearest point up to                                   | `matching.geoMaxExtSecs`       | The longest time between a photo and the nearest track point, when the photo is not between two close points. | 30 minutes  |
+| Bridge gaps where the track starts and ends at the same place | `matching.bridge.enabled`      | Whether long stops are filled in, see [The track](#the-track).                                                | On          |
+| Same place: within                                            | `matching.bridge.radiusMeters` | How close the points before and after a stop must be.                                                         | 250 m       |
+| Gaps up to                                                    | `matching.bridge.maxGapHours`  | The longest stop that is filled in.                                                                           | 24 hours    |
+| Replace GPS positions photos already have                     | `writing.overwriteGps`         | Write photos that already have a position.                                                                    | Off         |
+| Write the time zone offset (OffsetTimeOriginal)               | `writing.writeOffsetTime`      | Also save the time zone offset into each written photo.                                                       | On          |
+| Keep a copy of each original file                             | `writing.backups`              | Keep `<file>_original` next to each edited file, so you can restore it.                                       | Off         |
+| For RAW files, write into                                     | `writing.rawTarget`            | The RAW file itself (`in-file`), or an `.xmp` sidecar next to it (`sidecar`).                                 | RAW file    |
+| Map                                                           | `mapSource`                    | OpenFreeMap (needs internet), your own map style address, or a local PMTiles file that works offline.         | OpenFreeMap |
 
 ## Updates
 
