@@ -38,7 +38,7 @@ export type MatchStatus =
 export type MatchKind = MatchStatus['kind']
 
 export const SIDECAR_COLLISION =
-  'Another RAW in this folder has the same name, so they would share one .xmp sidecar'
+  'Another RAW or .xmp in this folder has the same name, so its sidecar is ambiguous'
 
 /** Statuses that get coordinates written. */
 export const PLACED_KINDS: ReadonlySet<MatchKind> = new Set(['matched', 'matched-stay', 'manual'])

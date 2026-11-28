@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -92,6 +92,16 @@ describe('scanFolder', () => {
     expect(flagged.sort()).toEqual(['IMG.CR3', 'IMG.DNG'])
     expect(photos.filter((p) => p.sidecarCollision).every((p) => p.sidecarPath === null)).toBe(true)
     expect(photos.find((p) => p.relDir === 'other')?.sidecarCollision).toBe(false)
+  })
+
+  it('flags a RAW whose name matches two sidecars that differ only in case', async () => {
+    await touch('IMG.CR3')
+    await touch('IMG.xmp')
+    await touch('img.XMP')
+    const caseSensitive = (await readdir(root)).length === 3
+    const photos = await scanFolder(root)
+    expect(photos[0].sidecarCollision).toBe(caseSensitive)
+    if (caseSensitive) expect(photos[0].sidecarPath).toBeNull()
   })
 
   it('follows symlinked folders without hanging on loops', async () => {

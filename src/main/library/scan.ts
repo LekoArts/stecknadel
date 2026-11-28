@@ -72,6 +72,8 @@ export async function scanFolder(
 
     const relDir = relative(root, dir).split(/[\\/]/).filter(Boolean).join('/')
     const sidecars = new Map<string, string>()
+    // On a case-sensitive volume `IMG.xmp` and `img.xmp` can both exist; neither is picked.
+    const ambiguousSidecars = new Set<string>()
     const here: ScannedPhoto[] = []
 
     for (const entry of entries) {
@@ -83,7 +85,9 @@ export async function scanFolder(
       }
       if (kind !== 'file') continue
       if (extname(entry.name).toLowerCase() === '.xmp') {
-        sidecars.set(stem(entry.name), join(dir, entry.name))
+        const key = stem(entry.name)
+        if (sidecars.has(key)) ambiguousSidecars.add(key)
+        sidecars.set(key, join(dir, entry.name))
         continue
       }
       const format = formatOf(entry.name)
@@ -105,7 +109,7 @@ export async function scanFolder(
       rawsByStem.set(key, [...(rawsByStem.get(key) ?? []), photo])
     }
     for (const [key, raws] of rawsByStem) {
-      if (raws.length > 1) {
+      if (raws.length > 1 || ambiguousSidecars.has(key)) {
         for (const raw of raws) raw.sidecarCollision = true
       } else {
         raws[0].sidecarPath = sidecars.get(key) ?? null
