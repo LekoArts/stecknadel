@@ -44,6 +44,9 @@ mac:
   # Hardened runtime is for notarization; ad hoc it would block loading Electron's own frameworks.
   hardenedRuntime: false
   notarize: false
+  extendInfo:
+    # Shown in macOS's prompt before the app may reach a Dawarich server on the local network.
+    NSLocalNetworkUsageDescription: Stecknadel connects to your Dawarich server to fetch your location history.
 dmg:
   artifactName: ${productName}-${version}.${ext}
 npmRebuild: false
