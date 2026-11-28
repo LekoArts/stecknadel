@@ -165,7 +165,7 @@ export function RecoveryMenu({ writes, onChanged }: RecoveryMenuProps): React.JS
                         </Button>
                       </>
                     )}
-                    {w.restorable === 0 && w.backups.count === 0 && (
+                    {((w.restorable === 0 && w.backups.count === 0) || w.missing > 0) && (
                       <Button size="sm" variant="ghost" onClick={() => void dismiss(w)}>
                         Forget
                       </Button>
