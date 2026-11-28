@@ -120,7 +120,7 @@ describe('detectCameraSettings', () => {
 
   it('takes either reading of a repeated DST hour that a photo recorded, and no other', () => {
     const la = trackOf([
-      ['2026-10-31T16:00:00Z', '2026-11-02T08:00:00Z', 37.77, -122.42, 'America/Los_Angeles'],
+      ['2026-10-31T16:00:00Z', '2026-11-02T08:00:00Z', 34.05, -118.24, 'America/Los_Angeles'],
     ])
     const photos = [
       photo('2026:10:31 12:00:00'),
