@@ -10,6 +10,16 @@ import { PHOTO_ID_PATTERN } from './library'
 import { type PreviewSnapshot, previewInputSchema, type TrackGeometry } from './preview'
 import { type SettingsView, saveSettingsSchema } from './settings'
 import type { TrackSummary } from './track/types'
+import {
+  type JournalView,
+  type RecoveryResult,
+  restoreInputSchema,
+  type TargetValues,
+  type WriteProgress,
+  type WriteResult,
+  writeInputSchema,
+  writeRefSchema,
+} from './write'
 
 const photoRef = z.strictObject({ id: z.string().regex(PHOTO_ID_PATTERN) })
 
@@ -126,6 +136,46 @@ export const ipcContract = {
     input: z.undefined(),
     output: z.custom<SettingsView | null>(),
   },
+  /**
+   * Writes the confirmed preview into the files. `stale` when the preview, the settings or the
+   * files no longer match what the user confirmed (nothing was touched then).
+   */
+  writePhotos: {
+    input: writeInputSchema,
+    output: z.custom<WriteResult>(),
+  },
+  /** Shows a save dialog and writes the last report as CSV; false when cancelled or none. */
+  exportReport: {
+    input: z.undefined(),
+    output: z.custom<boolean>(),
+  },
+  /** Recent writes that can still be restored or have backups. */
+  listWrites: {
+    input: z.undefined(),
+    output: z.custom<JournalView[]>(),
+  },
+  /** An interrupted write's targets: journaled values next to the current ones. */
+  inspectWrite: {
+    input: writeRefSchema,
+    output: z.custom<TargetValues[]>(),
+  },
+  restoreValues: {
+    input: restoreInputSchema,
+    output: z.custom<RecoveryResult>(),
+  },
+  restoreOriginals: {
+    input: restoreInputSchema,
+    output: z.custom<RecoveryResult>(),
+  },
+  cleanupBackups: {
+    input: writeRefSchema,
+    output: z.custom<RecoveryResult>(),
+  },
+  /** Forgets a write whose files were moved or deleted. */
+  dismissWrite: {
+    input: writeRefSchema,
+    output: z.custom<null>(),
+  },
 } as const
 
 /** Test-only (STECKNADEL_E2E=1): the last preview snapshot main holds. */
@@ -148,9 +198,15 @@ export interface IpcEvents {
   libraryProgress: LibraryProgress
   trackProgress: { page: number; totalPages: number }
   panel: PanelCommand
+  writeProgress: WriteProgress
 }
 export type IpcEventName = keyof IpcEvents
-export const ipcEventNames: IpcEventName[] = ['libraryProgress', 'trackProgress', 'panel']
+export const ipcEventNames: IpcEventName[] = [
+  'libraryProgress',
+  'trackProgress',
+  'panel',
+  'writeProgress',
+]
 export const ipcEventChannel = (name: IpcEventName): string => `stecknadel:event:${name}`
 
 export type StecknadelApi = {

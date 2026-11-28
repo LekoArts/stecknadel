@@ -69,6 +69,8 @@ beforeAll(async () => {
       chooseFolder,
       chooseGpxFile,
       choosePmtilesFile,
+      chooseReportFile: async () => join(dir, 'report.csv'),
+      journalDir: join(dir, 'userData/journal'),
       send: () => {},
     }),
     () => window,
@@ -212,5 +214,21 @@ describe('IPC authorization', () => {
     )
     choosePmtilesFile.mockResolvedValueOnce(null)
     await expect(invoke('choosePmtiles')).resolves.toBeNull()
+  })
+})
+
+describe('writing over IPC', () => {
+  it('refuses an unconfirmed generation and unknown writes; has nothing to export yet', async () => {
+    const writing = ((await invoke('getSettings')) as SettingsView).writing
+    await expect(invoke('writePhotos', { generation: 99, writing })).resolves.toMatchObject({
+      kind: 'stale',
+    })
+    await expect(invoke('exportReport')).resolves.toBe(false)
+    await expect(invoke('listWrites')).resolves.toEqual([])
+    const writeId = '0b0c1d2e-3f40-4152-8637-48495a6b7c8d'
+    await expect(invoke('restoreValues', { writeId, confirmInterrupted: true })).rejects.toThrow(
+      /no longer recorded/,
+    )
+    await expect(invoke('cleanupBackups', { writeId: '../x' })).rejects.toThrow(/invalid input/)
   })
 })

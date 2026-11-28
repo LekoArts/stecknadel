@@ -238,6 +238,18 @@ app.whenReady().then(async () => {
           properties: ['openFile'],
           filters: [{ name: 'PMTiles map', extensions: ['pmtiles'] }],
         }),
+      chooseReportFile: async () => {
+        const options = {
+          title: 'Export write report',
+          defaultPath: 'stecknadel-report.csv',
+          filters: [{ name: 'CSV', extensions: ['csv'] }],
+        }
+        const result = mainWindow
+          ? await dialog.showSaveDialog(mainWindow, options)
+          : await dialog.showSaveDialog(options)
+        return result.canceled ? null : (result.filePath ?? null)
+      },
+      journalDir: join(userData, 'journal'),
       send: (event, payload) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(ipcEventChannel(event), payload)

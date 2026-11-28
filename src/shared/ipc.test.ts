@@ -7,6 +7,15 @@ const id = `p${'0123456789abcdef'.repeat(2).slice(0, 24)}`
 /** For every channel: inputs its schema must accept and inputs it must reject. */
 const settings = { matching: DEFAULT_MATCHING, writing: DEFAULT_WRITING }
 
+const WRITE_ID = '0b0c1d2e-3f40-4152-8637-48495a6b7c8d'
+const badWriteRefs = [
+  undefined,
+  {},
+  { writeId: '../../etc/passwd' },
+  { writeId: `${WRITE_ID}.json` },
+  { writeId: WRITE_ID, path: '/x' },
+]
+
 const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
   getAppInfo: {
     valid: [undefined],
@@ -135,6 +144,29 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
       { generation: 1, cameras: {}, manual: {}, extra: true },
     ],
   },
+  writePhotos: {
+    valid: [{ generation: 3, writing: DEFAULT_WRITING }],
+    invalid: [
+      undefined,
+      { generation: 0, writing: DEFAULT_WRITING },
+      { generation: 3 },
+      { generation: 3, writing: { ...DEFAULT_WRITING, rawTarget: 'elsewhere' } },
+      { generation: 3, writing: DEFAULT_WRITING, paths: ['/etc/passwd'] },
+    ],
+  },
+  exportReport: { valid: [undefined], invalid: [{}, '/tmp/report.csv'] },
+  listWrites: { valid: [undefined], invalid: [{}, null] },
+  inspectWrite: { valid: [{ writeId: WRITE_ID }], invalid: badWriteRefs },
+  restoreValues: {
+    valid: [{ writeId: WRITE_ID, confirmInterrupted: false }],
+    invalid: [...badWriteRefs, { writeId: WRITE_ID }],
+  },
+  restoreOriginals: {
+    valid: [{ writeId: WRITE_ID, confirmInterrupted: true }],
+    invalid: [...badWriteRefs, { writeId: WRITE_ID, confirmInterrupted: 'yes' }],
+  },
+  cleanupBackups: { valid: [{ writeId: WRITE_ID }], invalid: badWriteRefs },
+  dismissWrite: { valid: [{ writeId: WRITE_ID }], invalid: badWriteRefs },
 }
 
 describe('ipc contract', () => {

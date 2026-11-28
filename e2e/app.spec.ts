@@ -20,6 +20,9 @@ test('window opens with the security baseline', async () => {
     expect(renderer.debug).toBe(false)
     expect(renderer.api.sort()).toEqual([
       'choosePmtiles',
+      'cleanupBackups',
+      'dismissWrite',
+      'exportReport',
       'fetchDawarich',
       'getAppInfo',
       'getMetadata',
@@ -28,14 +31,19 @@ test('window opens with the security baseline', async () => {
       'getTrackGeometry',
       'getTrackState',
       'getTrackZones',
+      'inspectWrite',
+      'listWrites',
       'loadGpx',
       'on',
       'openFolder',
       'renameCamera',
+      'restoreOriginals',
+      'restoreValues',
       'runPreview',
       'saveDawarichSettings',
       'saveSettings',
       'testDawarich',
+      'writePhotos',
     ])
 
     const rendererSandboxed = await app.evaluate(({ app: electronApp, BrowserWindow }) => {
