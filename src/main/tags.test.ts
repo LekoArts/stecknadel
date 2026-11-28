@@ -12,6 +12,8 @@ describe('restored', () => {
   it('rejects a changed value, unrecorded coordinates or an unreadable file', () => {
     expect(restored(values, { ...values, 'GPS:GPSLatitude': 47 })).toBe(false)
     expect(restored({}, { 'XMP-exif:GPSLongitude': 7 })).toBe(false)
+    expect(restored({}, { 'ExifIFD:OffsetTimeOriginal': '+02:00' })).toBe(false)
+    expect(restored({}, { 'XMP-exif:DateTimeOriginal': '2026:06:01 10:00:00' })).toBe(false)
     expect(restored(values, undefined)).toBe(false)
   })
 })

@@ -470,10 +470,46 @@ describe('safety', () => {
     await mkdir(h.path('r.xmp'))
     const result = await h.write()
     if (result.kind !== 'done') throw new Error(result.reason)
-    expect(row(result.report, h.idOf('r.CR3'))?.outcome).toBe('failed')
-    const id = result.report.writeId as string
-    await h.recovery.restoreValues(id, false)
+    expect(row(result.report, h.idOf('r.CR3'))).toMatchObject({
+      outcome: 'failed',
+      reason: 'changed since preview',
+    })
+    // Nothing was touched, so nothing is left to restore (or to delete).
+    expect(result.report.writeId).toBeNull()
+    expect(await h.recovery.list()).toEqual([])
     expect((await stat(h.path('r.xmp'))).isDirectory()).toBe(true)
+    expect((await readdir(h.dir)).sort()).toEqual(['r.CR3', 'r.xmp'])
+  })
+
+  it('a RAW edited while the journal is saved gets no sidecar', async () => {
+    const h = await make([{ src: FORMATS.CR3, name: 'r.CR3', wall: wallAt(30) }])
+    h.writing.rawTarget = 'sidecar'
+    h.hooks.afterJournal = () => appendFileSync(h.path('r.CR3'), Buffer.from([0]))
+    const { report } = await h.previewAndWrite()
+    expect(row(report, h.idOf('r.CR3'))?.reason).toBe('changed since preview')
+    expect(await readdir(h.dir)).toEqual(['r.CR3'])
+  })
+
+  it('a file turned away mid-write is left out of the journal, so a restore never reverts it', async () => {
+    const h = await make([
+      { src: FORMATS.JPEG, name: 'a.jpg', wall: wallAt(30) },
+      { src: FORMATS.JPEG, name: 'b.jpg', wall: wallAt(40) },
+    ])
+    h.hooks.beforeBatch = async () => {
+      // Someone else geotags b.jpg meanwhile.
+      await runRaw(et, [
+        '-overwrite_original',
+        '-GPSLatitude=10',
+        '-GPSLatitudeRef=N',
+        h.path('b.jpg'),
+      ])
+    }
+    const { report } = await h.previewAndWrite()
+    expect(row(report, h.idOf('b.jpg'))?.reason).toBe('changed since preview')
+    const restore = await h.recovery.restoreValues(report.writeId as string, false)
+    expect(restore).toEqual({ done: 1, skipped: [] })
+    expect(await tag(h.path('b.jpg'), 'GPS:GPSLatitude')).toBe(10)
+    expect(await tag(h.path('a.jpg'), 'GPS:GPSLatitude')).toBeUndefined()
   })
 
   it('killing ExifTool mid-batch leaves every file untouched or fully written, no temp files', async () => {

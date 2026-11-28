@@ -102,6 +102,7 @@ export class Harness {
       writing: () => this.writing,
       hooks: {
         expected: (id, p) => this.hooks.expected?.(id, p) ?? p,
+        afterJournal: () => this.hooks.afterJournal?.(),
         beforeBatch: (files) => this.hooks.beforeBatch?.(files),
       },
     })

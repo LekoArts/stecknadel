@@ -27,10 +27,11 @@ const targetSchema = z.strictObject({
   /** False for a sidecar that didn't exist before the write. */
   existed: z.boolean(),
   /**
-   * The write created this sidecar (saved right after `-o` succeeded). Only then may a restore
-   * delete it: a file someone else put at that path in the meantime is not ours.
+   * The sidecar this write is about to create, recorded before it appears at `path` (it is made
+   * under a temp name and linked into place, which fails if anything is there). Only a sidecar
+   * recorded here may be deleted by a restore.
    */
-  created: z.boolean(),
+  created: identitySchema.nullable(),
   /**
    * The affected tags before the write (`{}` for a sidecar the write creates); null once
    * restored or expired.

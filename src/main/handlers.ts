@@ -213,7 +213,8 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       return true
     },
     reloadFolder: () => library.reload(),
-    listWrites: () => recovery.list(),
+    // Listing expires and prunes journals, so it queues with the rest.
+    listWrites: () => onDisk(() => recovery.list()),
     inspectWrite: ({ writeId }) => recovery.inspect(writeId),
     restoreValues: ({ writeId, confirmInterrupted }) =>
       onDisk(() => recovery.restoreValues(writeId, confirmInterrupted)),

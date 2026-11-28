@@ -63,12 +63,12 @@ export function restoreArgs(values: TagValues): string[] {
 
 /**
  * Whether `now` holds the journaled `values` again: every recorded tag as recorded, and no
- * coordinates where none were recorded (ExifTool may add bookkeeping such as GPSVersionID).
+ * other affected tag, except the GPSVersionID ExifTool adds whenever it writes the GPS IFD.
  */
 export function restored(values: TagValues, now: TagValues | undefined): boolean {
   if (!now) return false
   for (const [k, v] of Object.entries(values)) if (String(now[k]) !== String(v)) return false
-  return Object.keys(now).every((k) => k in values || !/:GPS(Latitude|Longitude|Altitude)$/.test(k))
+  return Object.keys(now).every((k) => k in values || /:GPSVersionID$/.test(k))
 }
 
 const num = (v: unknown): number | null => (typeof v === 'number' ? v : null)
