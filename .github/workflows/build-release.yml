@@ -87,6 +87,8 @@ jobs:
             mkdir -p "$RUNNER_TEMP/installed"
             cp -R "$mount/Stecknadel.app" "$RUNNER_TEMP/installed/"
             hdiutil detach "$mount"
+            # A broken bundle signature makes macOS call the downloaded app damaged.
+            codesign --verify --deep --strict --verbose=1 "$RUNNER_TEMP/installed/Stecknadel.app"
             app="$RUNNER_TEMP/installed/Stecknadel.app/Contents/MacOS/Stecknadel"
           fi
           echo "app=$app" >> "$GITHUB_OUTPUT"

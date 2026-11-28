@@ -38,6 +38,11 @@ mac:
     - target: dmg
       arch: [arm64]
   entitlementsInherit: build/entitlements.mac.plist
+  # No Developer ID yet: sign ad hoc, so the bundle's signature is whole. Without it the copied
+  # Electron binary's signature doesn't cover the app, and macOS calls a downloaded app damaged.
+  identity: "-"
+  # Hardened runtime is for notarization; ad hoc it would block loading Electron's own frameworks.
+  hardenedRuntime: false
   notarize: false
 dmg:
   artifactName: ${productName}-${version}.${ext}
