@@ -16,8 +16,12 @@ export function packagedDirExecutable(): string {
 }
 
 /** Launches the packaged app: the `installed` project passes STECKNADEL_APP_PATH, others use the --dir build. */
-export async function launchApp(env: Record<string, string> = {}): Promise<ElectronApplication> {
+export async function launchApp(
+  env: Record<string, string> = {},
+  options: { recordVideo?: { dir: string; size?: { width: number; height: number } } } = {},
+): Promise<ElectronApplication> {
   return electron.launch({
+    ...options,
     executablePath: process.env.STECKNADEL_APP_PATH || packagedDirExecutable(),
     // STECKNADEL_E2E exposes the test-only preview snapshot (never set in a normal launch).
     env: { ...process.env, STECKNADEL_E2E: '1', ...env } as Record<string, string>,
