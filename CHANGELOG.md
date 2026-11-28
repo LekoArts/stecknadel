@@ -1,5 +1,11 @@
 # stecknadel
 
+## 0.1.1
+
+### Patch Changes
+
+- macOS no longer says the downloaded app "is damaged". The app is now signed ad hoc, so macOS shows its usual warning for apps from unidentified developers, which you can get past in System Settings → Privacy & Security. ([`9383fe9`](https://github.com/LekoArts/stecknadel/commit/9383fe953858ded0a95918b658676035af2fa318))
+
 ## 0.1.0
 
 ### Minor Changes
