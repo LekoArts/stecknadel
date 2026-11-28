@@ -148,10 +148,14 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
     ],
   },
   writePhotos: {
-    valid: [{ generation: 3, writing: DEFAULT_WRITING, ids: [PHOTO] }],
+    valid: [
+      { generation: 3, writing: DEFAULT_WRITING, ids: [PHOTO] },
+      { generation: 3, writing: DEFAULT_WRITING, ids: new Array(500_000).fill(PHOTO) },
+    ],
     invalid: [
       undefined,
       { generation: 3, writing: DEFAULT_WRITING },
+      { generation: 3, writing: DEFAULT_WRITING, ids: new Array(500_001).fill(PHOTO) },
       { generation: 3, writing: DEFAULT_WRITING, ids: [] },
       { generation: 3, writing: DEFAULT_WRITING, ids: ['/etc/passwd'] },
       { generation: 0, writing: DEFAULT_WRITING, ids: [PHOTO] },
