@@ -124,7 +124,7 @@ export function WriteDialog({
       <Button
         size="sm"
         // As tall as the panel toggle bar beside it (32 px buttons + padding + border).
-        className="pointer-events-auto h-[38px] shadow-sm"
+        className="pointer-events-auto h-[38px] px-4 shadow-sm has-[>svg]:px-3.5"
         disabled={!snapshot || previewRunning || targets === 0}
         title={targets === 0 && snapshot ? 'No photo has a position to write' : 'Write positions'}
         onClick={() => {
