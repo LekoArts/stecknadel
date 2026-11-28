@@ -200,6 +200,8 @@ test('write: the selection decides what Write writes', async () => {
     await tile('b-stay').click({ modifiers: [mod] })
     await expect(button).toHaveText('Write (2)')
     await selected(2)
+    await expect(tile('b-stay')).toHaveAttribute('aria-pressed', 'true')
+    await expect(tile('c-before')).toHaveAttribute('aria-pressed', 'false')
     // A photo without a position: the button is off and says why.
     await tile('c-before').click()
     await expect(button).toBeDisabled()
