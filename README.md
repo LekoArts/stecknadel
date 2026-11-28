@@ -176,7 +176,7 @@ If Stecknadel stopped in the middle of a write, for example because the computer
 ## The track
 
 - **GPX file.** Click **Open GPX file**. Stecknadel reads track points and waypoints and tells you about points it had to skip.
-- **Dawarich.** Click **Fetch from Dawarich**. Enter the server address, your API key, and the start and end of the trip in UTC. Click **Test connection** to check the address and key. Your key is stored encrypted and is not shown again.
+- **Dawarich.** Click **Fetch from Dawarich**. Enter the server address, your API key, and the start and end of the trip in UTC. Click **Test connection** to check the address and key. Your key is stored encrypted and is not shown again. If your server is on your home network, macOS asks whether Stecknadel may find devices on your local network: click **Allow**. You can change this later in **System Settings → Privacy & Security → Local Network**.
 - **Fetch a wider range.** When photos were taken outside the fetched dates, a bar above the photos says so. Click **Fetch wider range**. The dates are already filled in.
 
 **Long stops.** When the track stays in one place for a long time, such as a night in a hotel, the phone often records no points. Stecknadel treats such a stop as one place, so photos taken there are placed.
