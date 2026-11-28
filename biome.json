@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!out", "!dist", "!test/fixtures/cache"]
+    "includes": ["**", "!out", "!dist", "!test/fixtures/cache", "!.changeset/*.md", "!CHANGELOG.md"]
   },
   "formatter": {
     "enabled": true,
