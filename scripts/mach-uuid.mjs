@@ -4,10 +4,14 @@
 // LC_UUID as every other app on this Electron release. macOS's Local Network privacy identifies a
 // program partly by that UUID, so it can apply another Electron app's decision to Stecknadel and
 // never ask: connections to a Dawarich server at home then fail with EHOSTUNREACH. Runs before
-// signing, which re-signs the patched files.
+// signing. Each patched file is re-signed ad hoc on its own too, like Electron ships it, for the
+// builds electron-builder doesn't sign (pull requests, `-c.mac.identity=null`): an executable
+// with a broken signature still launches there, but macOS refuses it the keychain.
+import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 
 const MH_MAGIC_64 = 0xfeedfacf
 const LC_UUID = 0x1b
@@ -54,5 +58,6 @@ export default async function afterPack(context) {
     const buffer = await readFile(file)
     rewriteUuid(buffer, appId)
     await writeFile(file, buffer)
+    await promisify(execFile)('codesign', ['--force', '--sign', '-', file])
   }
 }
