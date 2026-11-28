@@ -94,12 +94,15 @@ async function ours(journal: Journal, target: JournalTarget): Promise<boolean> {
  * Deletes a sidecar the write created (with the `.xmp_original` holding the geotag stub), if it
  * is ours, and any temp an interrupted write left.
  */
-async function removeCreated(journal: Journal, target: JournalTarget): Promise<void> {
+async function removeCreated(journal: Journal, target: JournalTarget): Promise<boolean> {
   await rm(sidecarTemp(target.path, journal.id), { force: true })
-  if (!(await ours(journal, target))) return
+  if (!(await ours(journal, target))) return (await identityOf(target.path)) === null
   await rm(target.path, { force: true })
   if (await regularFile(backupOf(target))) await rm(backupOf(target), { force: true })
+  return true
 }
+
+const NOT_OURS = 'a different file is there now'
 
 export class Recovery {
   constructor(
@@ -145,7 +148,10 @@ export class Recovery {
         continue
       }
       if (!target.existed) {
-        await removeCreated(journal, target)
+        if (!(await removeCreated(journal, target))) {
+          result.skipped.push({ name: target.name, reason: NOT_OURS })
+          continue
+        }
         target.after = null
       } else {
         try {
@@ -181,8 +187,12 @@ export class Recovery {
         result.skipped.push({ name: target.name, reason })
         continue
       }
-      if (!target.existed) await removeCreated(journal, target)
-      else await rename(path, target.path)
+      if (!target.existed) {
+        if (!(await removeCreated(journal, target))) {
+          result.skipped.push({ name: target.name, reason: NOT_OURS })
+          continue
+        }
+      } else await rename(path, target.path)
       target.values = null
       target.after = target.existed ? await identityOf(target.path) : null
       result.done += 1

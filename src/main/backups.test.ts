@@ -1,4 +1,4 @@
-import { appendFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { appendFile, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { ExifTool } from 'exiftool-vendored'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { NeedsConfirmation } from './backups'
@@ -191,8 +191,12 @@ describe('a sidecar from an interrupted write', () => {
     const h = await make([{ src: FORMATS.CR3, name: 'r.CR3', wall: wall(30) }])
     const id = await interrupted(h)
     await writeFile(h.path('r.xmp'), 'someone else')
-    await h.recovery.restoreValues(id, true)
+    expect(await h.recovery.restoreValues(id, true)).toEqual({
+      done: 0,
+      skipped: [{ name: 'r.CR3', reason: 'a different file is there now' }],
+    })
     expect((await readdir(h.dir)).sort()).toEqual(['r.CR3', 'r.xmp'])
+    expect(await readFile(h.path('r.xmp'), 'utf8')).toBe('someone else')
   })
 })
 
