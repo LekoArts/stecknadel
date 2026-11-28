@@ -338,10 +338,14 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
       'true',
     )
 
+    // A CI-sized window: the list scrolls sideways and leaves little room below the rows.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1000, 700))
+    await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThanOrEqual(1000)
     // Columns resize by dragging their edge, by arrow keys, and reset on double-click.
     const captured = page.getByRole('columnheader', { name: 'Captured' })
     const capturedWidth = async (): Promise<number> => (await captured.boundingBox())?.width ?? 0
     const before = await capturedWidth()
+    await captured.getByRole('separator').scrollIntoViewIfNeeded()
     const edge = await captured.getByRole('separator').boundingBox()
     if (!edge) throw new Error('no resize handle')
     await page.mouse.move(edge.x + edge.width / 2, edge.y + edge.height / 2)
@@ -385,10 +389,19 @@ test('photo list sorts, and the toolbar filters by camera and status', async () 
     await expect(
       page.getByRole('complementary', { name: 'Metadata' }).locator('input'),
     ).toBeVisible()
-    // Below the last row (the bottom edge can be a horizontal scrollbar).
+    // Below the last row (the bottom edge can be a horizontal scrollbar). A small window leaves no
+    // room below four rows, so give the photos more height first.
+    const photosPanel = page.getByRole('region', { name: 'Photos' })
+    const photosHeight = async (): Promise<number> => (await photosPanel.boundingBox())?.height ?? 0
+    const shortPhotos = await photosHeight()
+    await page.getByRole('separator').nth(1).focus()
+    await page.keyboard.press('Home')
+    await expect.poll(photosHeight).toBeGreaterThan(shortPhotos + 100)
+    // The list may be scrolled sideways, so aim inside the list's visible part.
     const last = await rows.last().boundingBox()
-    if (!last) throw new Error('no row')
-    await page.mouse.click(last.x + 40, last.y + last.height + 20)
+    const list = await page.getByTestId('photo-list').boundingBox()
+    if (!last || !list) throw new Error('no row')
+    await page.mouse.click(Math.max(last.x, list.x) + 40, last.y + last.height + 20)
     await expect(
       page.getByRole('complementary', { name: 'Metadata' }).locator('input'),
     ).toHaveCount(0)
