@@ -107,6 +107,8 @@ export function PhotoGrid({
         // Clicking anywhere inside focuses the view, so Escape and Cmd/Ctrl+A reach it.
         tabIndex={-1}
         data-testid="photo-grid"
+        // Tiles outside the view aren't rendered: tests read the count here.
+        data-selected-count={selection.ids.size}
         className="h-full select-none outline-none overflow-y-auto px-3 py-2 [scrollbar-gutter:stable]"
         // Clicking between or beside the tiles, or Escape, clears the selection.
         onClick={(e) => {

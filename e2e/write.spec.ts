@@ -172,7 +172,13 @@ test('write: the selection decides what Write writes', async () => {
 
   const { app, page, close } = await launchWithProfile()
   try {
+    // A CI-sized window: tiles off screen aren't rendered and can't be clicked, so make room for
+    // all four with the smallest thumbnails and the tallest photos panel.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1000, 700))
     await openFolder(app, page, dir)
+    await page.getByRole('slider', { name: 'Thumbnail size' }).press('Home')
+    await page.getByRole('separator').nth(1).focus()
+    await page.keyboard.press('Home')
     await app.evaluate(({ dialog }, chosen) => {
       dialog.showOpenDialog = (async () => ({
         canceled: false,
@@ -183,12 +189,9 @@ test('write: the selection decides what Write writes', async () => {
     await expect.poll(async () => (await previewSnapshot(page))?.results.length).toBe(4)
     const button = page.getByTestId('write-button')
     const tile = (name: string) => page.getByTestId('photo-tile').filter({ hasText: name })
-    const pressed = () =>
-      page
-        .getByTestId('photo-tile')
-        .evaluateAll(
-          (tiles) => tiles.filter((t) => t.getAttribute('aria-pressed') === 'true').length,
-        )
+    // Off-screen tiles aren't rendered, so the grid reports how many are selected.
+    const grid = page.getByTestId('photo-grid')
+    const selected = (n: number) => expect(grid).toHaveAttribute('data-selected-count', String(n))
     await expect(button).toHaveText('Write (3)')
 
     // One photo: the button says just Write. Cmd/Ctrl-click adds a second.
@@ -196,7 +199,7 @@ test('write: the selection decides what Write writes', async () => {
     await expect(button).toHaveText('Write')
     await tile('b-stay').click({ modifiers: [mod] })
     await expect(button).toHaveText('Write (2)')
-    expect(await pressed()).toBe(2)
+    await selected(2)
     // A photo without a position: the button is off and says why.
     await tile('c-before').click()
     await expect(button).toBeDisabled()
@@ -206,23 +209,23 @@ test('write: the selection decides what Write writes', async () => {
     // Shift-click selects the range; Escape clears; Cmd/Ctrl+A selects every shown photo.
     await tile('a-moving').click()
     await tile('d-later').click({ modifiers: ['Shift'] })
-    expect(await pressed()).toBe(4)
+    await selected(4)
     await page.keyboard.press('Escape')
-    expect(await pressed()).toBe(0)
+    await selected(0)
     await tile('a-moving').click()
     await page.keyboard.press(`${mod}+a`)
-    expect(await pressed()).toBe(4)
+    await selected(4)
 
     // Right-click inside the selection keeps it…
     await tile('b-stay').click({ button: 'right' })
-    expect(await pressed()).toBe(4)
+    await selected(4)
     await expect(page.getByTestId('menu-write')).toHaveText('Write selected photos (3)')
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('menu-write')).toHaveCount(0)
     // …outside it, that photo becomes the selection, and Write writes just it.
     await tile('a-moving').click()
     await tile('b-stay').click({ button: 'right' })
-    expect(await pressed()).toBe(1)
+    await selected(1)
     await expect(page.getByTestId('menu-write')).toHaveText('Write this photo')
     await page.getByTestId('menu-write').click()
     const confirm = page.getByRole('dialog', { name: 'Write 1 position' })
