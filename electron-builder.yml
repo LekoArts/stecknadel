@@ -50,6 +50,8 @@ mac:
 dmg:
   artifactName: ${productName}-${version}.${ext}
 npmRebuild: false
+# Own Mach-O UUIDs on macOS, so Local Network privacy treats Stecknadel as its own app.
+afterPack: scripts/mach-uuid.mjs
 publish:
   provider: github
   owner: LekoArts
