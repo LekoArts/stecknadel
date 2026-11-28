@@ -11,6 +11,7 @@ import { PanelToggles } from '@renderer/components/PanelToggles'
 import { PhotoGrid } from '@renderer/components/PhotoGrid'
 import { PhotoList } from '@renderer/components/PhotoList'
 import { PhotosToolbar, type PhotoView } from '@renderer/components/PhotosToolbar'
+import { RecoveryMenu } from '@renderer/components/RecoveryMenu'
 import { SettingsDialog } from '@renderer/components/SettingsDialog'
 import { TrackPanel } from '@renderer/components/TrackPanel'
 import { Button } from '@renderer/components/ui/button'
@@ -19,6 +20,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@renderer/components/ui/resizable'
+import { WriteDialog } from '@renderer/components/WriteDialog'
 import { ipcErrorMessage } from '@renderer/lib/ipc-error'
 import { PANEL_DEFAULT, PANEL_MIN, usePanels } from '@renderer/lib/panels'
 import {
@@ -54,6 +56,7 @@ import {
   rangeCovering,
 } from '@shared/track/range'
 import type { TrackSummary } from '@shared/track/types'
+import type { JournalView } from '@shared/write'
 import { FolderOpen, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useDefaultLayout } from 'react-resizable-panels'
@@ -95,6 +98,7 @@ export default function App(): React.JSX.Element {
   const [trackZones, setTrackZones] = useState<(string | null)[] | null>(null)
   const [settings, setSettings] = useState<SettingsView | null>(null)
   const [mapRevision, setMapRevision] = useState(0)
+  const [writes, setWrites] = useState<JournalView[]>([])
   /** Failed loads, by resource: shown on the map and retried from there. */
   const [loadErrors, setLoadErrors] = useState<Partial<Record<LoadSource, string>>>({})
   const [retries, setRetries] = useState<RetryCounts>(NO_RETRIES)
@@ -276,6 +280,25 @@ export default function App(): React.JSX.Element {
     } catch (error) {
       setLoad({ status: 'error', message: ipcErrorMessage(error) })
     }
+  }
+
+  const refreshWrites = (): void => {
+    window.stecknadel.listWrites().then(setWrites, () => setWrites([]))
+  }
+  useEffect(refreshWrites, [])
+
+  /** The files changed on disk (a write or a restore): show what they now say. */
+  const showWritten = (snapshot: LibrarySnapshot | null | undefined): void => {
+    refreshWrites()
+    if (!snapshot) return
+    clearThumbnailCache()
+    setLibrary(snapshot)
+    setManual({})
+  }
+
+  const reloadAfterRestore = (): void => {
+    refreshWrites()
+    window.stecknadel.reloadFolder().then(showWritten, () => {})
   }
 
   const renameCamera = async (key: string, name: string): Promise<void> => {
@@ -618,7 +641,18 @@ export default function App(): React.JSX.Element {
                 onApplyOffset={applyOffset}
                 onManual={setPlacement}
               />
-              <PanelToggles panels={panels} />
+              <div className="pointer-events-none absolute top-3 right-3 z-10 flex items-start gap-2">
+                <RecoveryMenu writes={writes} onChanged={reloadAfterRestore} />
+                {settings && library && (
+                  <WriteDialog
+                    snapshot={preview.snapshot}
+                    previewRunning={preview.running}
+                    writing={settings.writing}
+                    onWritten={(result) => showWritten(result.library)}
+                  />
+                )}
+                <PanelToggles panels={panels} />
+              </div>
             </main>
           </ResizablePanel>
           <ResizableHandle />

@@ -12,7 +12,7 @@ export function PanelToggles({ panels }: { panels: Panels }): React.JSX.Element 
   return (
     <fieldset
       aria-label="Panels"
-      className="absolute top-3 right-3 z-10 flex gap-0.5 rounded-lg border bg-background/95 p-0.5 shadow-sm"
+      className="pointer-events-auto flex gap-0.5 rounded-lg border bg-background/95 p-0.5 shadow-sm"
     >
       {(['cameras', 'photos', 'metadata'] as const).map((id) => {
         const Icon = ICONS[id]

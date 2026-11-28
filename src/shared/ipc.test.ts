@@ -156,6 +156,7 @@ const samples: { [K in IpcName]: { valid: unknown[]; invalid: unknown[] } } = {
   },
   exportReport: { valid: [undefined], invalid: [{}, '/tmp/report.csv'] },
   listWrites: { valid: [undefined], invalid: [{}, null] },
+  reloadFolder: { valid: [undefined], invalid: [{}, { folder: '/etc' }] },
   inspectWrite: { valid: [{ writeId: WRITE_ID }], invalid: badWriteRefs },
   restoreValues: {
     valid: [{ writeId: WRITE_ID, confirmInterrupted: false }],

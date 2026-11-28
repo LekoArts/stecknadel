@@ -139,6 +139,11 @@ export class Library {
     return this.snapshot()
   }
 
+  /** Reads the open folder again (after a write changed its files). */
+  reload(onProgress?: (progress: LibraryProgress) => void): Promise<LibrarySnapshot | null> {
+    return this.root === null ? Promise.resolve(null) : this.load(this.root, onProgress)
+  }
+
   /** Changes whenever a new folder finishes loading. */
   get loadId(): number {
     return this.loaded

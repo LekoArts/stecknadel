@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { LibrarySnapshot } from './library'
 import type { MatchKind } from './match/status'
 import type { Position } from './preview'
 import { writingSchema } from './settings'
@@ -34,7 +35,10 @@ export interface WriteReport {
   durationMs: number
 }
 
-export type WriteResult = { kind: 'stale'; reason: string } | { kind: 'done'; report: WriteReport }
+export type WriteResult =
+  | { kind: 'stale'; reason: string }
+  /** `library`: the folder read again, so the app sees what the files now say. */
+  | { kind: 'done'; report: WriteReport; library?: LibrarySnapshot | null }
 
 export interface WriteProgress {
   phase: 'checking' | 'writing' | 'verifying'
@@ -76,8 +80,11 @@ export interface RecoveryResult {
   skipped: { name: string; reason: string }[]
 }
 
-const csvField = (value: string): string =>
-  /[",\r\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value
+const csvField = (value: string): string => {
+  // A file name like `=HYPERLINK(…)` must not turn into a formula in a spreadsheet.
+  const safe = /^[=+\-@\t\r]/.test(value) && !/^-?\d/.test(value) ? `'${value}` : value
+  return /[",\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe
+}
 
 const fmt = (p: Position | null): string[] =>
   p ? [String(p.lat), String(p.lon), p.ele === null ? '' : String(p.ele)] : ['', '', '']

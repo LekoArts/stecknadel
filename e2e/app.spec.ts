@@ -36,6 +36,7 @@ test('window opens with the security baseline', async () => {
       'loadGpx',
       'on',
       'openFolder',
+      'reloadFolder',
       'renameCamera',
       'restoreOriginals',
       'restoreValues',

@@ -193,8 +193,9 @@ export function createHandlers(deps: HandlerDeps): Handlers {
     },
     writePhotos: async ({ generation, writing }) => {
       const result = await writer.write(generation, writing)
-      if (result.kind === 'done') lastReport = result.report
-      return result
+      if (result.kind !== 'done') return result
+      lastReport = result.report
+      return { ...result, library: await library.reload() }
     },
     exportReport: async () => {
       if (!lastReport) return false
@@ -203,6 +204,7 @@ export function createHandlers(deps: HandlerDeps): Handlers {
       await writeFile(file, reportCsv(lastReport))
       return true
     },
+    reloadFolder: () => library.reload(),
     listWrites: () => recovery.list(),
     inspectWrite: ({ writeId }) => recovery.inspect(writeId),
     restoreValues: ({ writeId, confirmInterrupted }) =>

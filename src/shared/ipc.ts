@@ -149,6 +149,11 @@ export const ipcContract = {
     input: z.undefined(),
     output: z.custom<boolean>(),
   },
+  /** Reads the open folder again (after a restore changed its files); null when none is open. */
+  reloadFolder: {
+    input: z.undefined(),
+    output: z.custom<LibrarySnapshot | null>(),
+  },
   /** Recent writes that can still be restored or have backups. */
   listWrites: {
     input: z.undefined(),
